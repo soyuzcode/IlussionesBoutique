@@ -1,14 +1,18 @@
 package models;
 
-public class Vestido {
+public class Vestido extends Producto {
     private String medidas;
     private String color;
     private String tipoCorte;
     private boolean requiereCambios;
 
-    public Vestido() {}
+    public Vestido() {
+        super();
+    }
 
-    public Vestido(String medidas, String color, String tipoCorte, boolean requiereCambios) {
+    public Vestido(String idProducto, double precio, String foto, String materiales, String estado,
+                   String medidas, String color, String tipoCorte, boolean requiereCambios) {
+        super(idProducto, precio, foto, materiales, estado);
         this.medidas = medidas;
         this.color = color;
         this.tipoCorte = tipoCorte;
