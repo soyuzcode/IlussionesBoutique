@@ -1,4 +1,4 @@
-package models;
+package com.keycode.ilussioness_backend.models;
 
 public class Vestido extends Producto {
     private String medidas;

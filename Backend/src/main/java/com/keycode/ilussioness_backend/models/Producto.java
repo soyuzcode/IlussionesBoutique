@@ -1,4 +1,4 @@
-package models;
+package com.keycode.ilussioness_backend.models;
 
 public abstract class Producto {
     protected String idProducto;
