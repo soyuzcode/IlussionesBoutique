@@ -1,0 +1,9 @@
+{
+  "hoy": [
+    { "id": 101, "hora": "09:00", "periodo": "AM", "cliente": "Carla Mendoza", "tipo": "Prueba de Velo", "estado": "activa" },
+    { "id": 102, "hora": "11:30", "periodo": "AM", "cliente": "Andrea Gómez", "tipo": "Toma de Medidas", "estado": "activa" }
+  ],
+  "semana": [
+    { "id": 201, "dia": "Sábado 03", "hora": "02:00 PM", "cliente": "Valeria Castro", "tipo": "Entrega de Vestido" }
+  ]
+}
