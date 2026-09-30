@@ -1,17 +1,20 @@
-## README en main 
-Se añade el archivo `README.md` en la raíz del repositorio principal (`IlussionesBoutique`). Este documento muestra la estructura general de los módulos.
+# lussiones Boutique - Main Repository
 
-## Propósito del sistema 
-Desarrollar un sistema que permita centralizar la información de Ilussiones Boutique (tienda de vestidos de boda y quinceaños). Con esto buscamos facilitar la gestión del inventario, llevar un registro organizado de la cantidad de vestidos disponibles y mejorar el control de las existencias.
+## Root README
+This `README.md` file is located at the root of the main repository (`IlussionesBoutique`). It serves as the primary entry point for the project, detailing the system architecture, business purpose, and module structure.
 
-## 
-- Creación del archivo `README.md` en la raíz del proyecto.
-- Descripción de la arquitectura general (conexión entre los módulos `Frontend` y `Backend`).
-- Identificación del equipo de desarrollo y propósito del sistema.
+## System Purpose
+System Architecture
+The project follows a decoupled architecture, divided into two main modules:
 
-## Desarrollado por
-- Equipo **KEY CODE**
+- Frontend: Web user interface developed with React, Vite, and TypeScript. Contains the views for customer registration, appointment scheduling, inventory tracking, order status, document generation, and digital catalog.
+
+- Backend: Server-side logic, API REST endpoints, and database management for inventory, customers, order states, and system users.  
+
+## Developed by
+- Team **KEY CODE**
 - Proyect Manager: Carlos Flores
 - Backend: Michelle Aquino
 - Frontend: Benjamín Amaya y Gaby Alas
 - QA: Sara Alvarado 
+
