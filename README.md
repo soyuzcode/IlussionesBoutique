@@ -15,6 +15,6 @@ The project follows a decoupled architecture, divided into two main modules:
 - Team **KEY CODE**
 - Proyect Manager: Carlos Flores
 - Backend: Michelle Aquino
-- Frontend: Benjamín Amaya y Gaby Alas
+- Frontend: Benjamín Amaya & Gaby Alas
 - QA: Sara Alvarado 
 
