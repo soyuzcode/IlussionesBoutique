@@ -1,12 +1,11 @@
 # Ilussions - Web App (Frontend)
+Frontend module for the **Ilussions** web application developed for **Ilussiones Boutique** by the **KEY CODE** team.
 
-Módulo Frontend de la aplicación web **Ilussions** para **Ilussiones Boutique**, desarrollada por el equipo **KEY CODE**.
-
-Este módulo está enfocado en proporcionar una interfaz que sea intuitiva, moderna y adaptada a dispositivos móviles y de escritorio para digitalizar la gestión de clientes, citas, inventario, pedidos y catálogo para la tienda Ilussiones Boutique, la cual es una tienda especializada en vestidos de boda y de 15 años.
+This module focuses on providing an intuitive, modern, and responsive user interface across mobile and desktop devices to digitize customer management, appointments, inventory, orders, and catalog browsing for Ilussiones Boutique—a store specializing in bridal and quinceañera gowns.
 
 ---
 
-## Tecnologías Utilizadas
+## Technologies Used
 
 - **Framework / Bundler:** Vite
 - **Librería UI:** React
@@ -15,35 +14,42 @@ Este módulo está enfocado en proporcionar una interfaz que sea intuitiva, mode
 
 ---
 
-## Módulos y Funcionalidades Incluidas
+## Included Modules and Features
 
-La interfaz tendrá los siguientes módulos principales:
+1. Customers & Appointments Form (Pantalla_01_FormularioCliente): Customer data registration, first appointment scheduling, and Google Calendar integration.
 
-1. **Formulario de Clientes y Citas (`Pantalla_01_FormularioCliente`):** Registro de datos del cliente, agendamiento de primera cita e integración con Google Calendar.
-2. **Gestión de Inventario (`Pantalla_02_Inventario`):** Consulta y actualización de prendas, productos disponibles y materia prima.
-3. **Generador de Documentos (`Pantalla_03_Documentos`):** Emisión de cotizaciones temporales y facturas en PDF.
-4. **Seguimiento de Pedidos (`Pantalla_04_EstadoPedidos`):** Control del estado de confección del vestido y accesorios.
-5. **Catálogo Digital (`Pantalla_05_Catalogo`):** Visualización de prendas y accesorios disponibles con fotos y precios orientativos.
+2. Inventory Management (Pantalla_02_Inventario): Query and update functions for available garments, stock items, and raw materials.
 
----
+3. Document Generator (Pantalla_03_Documentos): Issuance of temporary quotes and PDF invoices.
 
-## Roles de Usuario Soportados en UI
+4. Order Tracking (Pantalla_04_EstadoPedidos): Status monitoring for dress tailoring, fitting stages, and accessories.
 
-- **Administradora:** Acceso total a gestión de pedidos, clientes, inventario y cuentas auxiliares.
-- **Auxiliar** Registro de clientes/pedidos, consulta de agenda e inventario.
+5. Digital Catalog (Pantalla_05_Catalogo): Visual gallery displaying available garments and accessories with photos and reference prices.
 
 ---
 
-## Estructura del Módulo Frontend
+## UI User Roles Supported
 
-```text
+- **Administrator:** Full access to manage orders, customer records, inventory, and auxiliary accounts
+- **Assistant:** Customer and order registration, appointment schedule lookup, and stock availability checking.
+
+---
+
+## Frontend Directory Structure
+
 Frontend/
-├── public/              # Archivos estáticos e imágenes
-├── src/                 # Código fuente de la aplicación
-│   ├── assets/          # Recursos gráficos y estilos
-│   ├── components/      # Componentes reutilizables de UI
+├── public/              # Static assets and images
+├── src/                 # Application source code
+│   ├── assets/          # Graphic resources and styles
+│   ├── components/      # Reusable UI components
 │   └── ...
-├── index.html           # Punto de entrada HTML
-├── package.json         # Dependencias y scripts
-├── tsconfig.json        # Configuración de TypeScript
-└── vite.config.ts       # Configuración del servidor Vite
+├── index.html           # HTML entry point
+├── package.json         # Project dependencies and scripts
+├── tsconfig.json        # TypeScript configuration
+└── vite.config.ts       # Vite server configuration
+
+
+## Local Installation & Running Steps
+**Prerequisites:** Node.js installed
+
+Developed by **KEY CODE**
