@@ -1,75 +1,49 @@
-# React + TypeScript + Vite
+# Ilussions - Web App (Frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Módulo Frontend de la aplicación web **Ilussions** para **Ilussiones Boutique**, desarrollada por el equipo **KEY CODE**.
 
-Currently, two official plugins are available:
+Este módulo está enfocado en proporcionar una interfaz que sea intuitiva, moderna y adaptada a dispositivos móviles y de escritorio para digitalizar la gestión de clientes, citas, inventario, pedidos y catálogo para la tienda Ilussiones Boutique, la cual es una tienda especializada en vestidos de boda y de 15 años.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Tecnologías Utilizadas
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework / Bundler:** Vite
+- **Librería UI:** React
+- **Lenguaje:** TypeScript (`.ts`, `.tsx`)
+- **Gestor de paquetes:** Node Package Manager (`npm`)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Módulos y Funcionalidades Incluidas
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+La interfaz tendrá los siguientes módulos principales:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. **Formulario de Clientes y Citas (`Pantalla_01_FormularioCliente`):** Registro de datos del cliente, agendamiento de primera cita e integración con Google Calendar.
+2. **Gestión de Inventario (`Pantalla_02_Inventario`):** Consulta y actualización de prendas, productos disponibles y materia prima.
+3. **Generador de Documentos (`Pantalla_03_Documentos`):** Emisión de cotizaciones temporales y facturas en PDF.
+4. **Seguimiento de Pedidos (`Pantalla_04_EstadoPedidos`):** Control del estado de confección del vestido y accesorios.
+5. **Catálogo Digital (`Pantalla_05_Catalogo`):** Visualización de prendas y accesorios disponibles con fotos y precios orientativos.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
 
-```
+## Roles de Usuario Soportados en UI
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+- **Administradora:** Acceso total a gestión de pedidos, clientes, inventario y cuentas auxiliares.
+- **Auxiliar** Registro de clientes/pedidos, consulta de agenda e inventario.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Estructura del Módulo Frontend
 
-```
+```text
+Frontend/
+├── public/              # Archivos estáticos e imágenes
+├── src/                 # Código fuente de la aplicación
+│   ├── assets/          # Recursos gráficos y estilos
+│   ├── components/      # Componentes reutilizables de UI
+│   └── ...
+├── index.html           # Punto de entrada HTML
+├── package.json         # Dependencias y scripts
+├── tsconfig.json        # Configuración de TypeScript
+└── vite.config.ts       # Configuración del servidor Vite
