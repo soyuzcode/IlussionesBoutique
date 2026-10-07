@@ -37,6 +37,30 @@ interface BackendAppointment {
 // MOCKS
 // ============================================================
 
+const mockPedidos = [
+  {
+    id: 'P-101',
+    client: 'María López',
+    item: 'Vestido de Gala Rojo',
+    status: 'Pendiente Entrega',
+    deliveryDate: '3 días',
+  },
+  {
+    id: 'P-102',
+    client: 'Elena Martínez',
+    item: 'Vestido Novia Seda',
+    status: 'En Confección',
+    deliveryDate: '10 días',
+  },
+  {
+    id: 'P-103',
+    client: 'Gabriela Alas',
+    item: 'Vestido XV Años Rosa',
+    status: 'Listo',
+    deliveryDate: 'Mañana',
+  },
+];
+
 const mockToday: Cita[] = [
   {
     id: 101,
