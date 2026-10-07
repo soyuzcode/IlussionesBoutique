@@ -1,51 +1,130 @@
-# 🌎 - Specifically for this project - 🌎
-settings.json
-config.json
-events.log
-detailed_events.log
-.old
+# ==========================================
+# 🐍 PYTHON & VIRTUAL ENVIRONMENTS
+# ==========================================
+env/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# 🐍 - Python - 🐍
-env/*
-.venv/*
-venv
-__pycache__
 
-# 📜- PyInstaller - 📜
-build
+# ==========================================
+# 📦 PACKAGING & MOBILE (PyInstaller & Buildozer)
+# ==========================================
+# PyInstaller
+build/
+dist/
 *.spec
 
-# 💡- Buildozer - 💡
-bin
-buildozer
-.buildozerW
- 
-# 🐳 - Editor directories and files - 🐳
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
+# Buildozer / Android
+bin/
+buildozer/
+.buildozer/
+.buildozerW/
 
-# 🐈‍⬛ - Logs - 🐈‍⬛
-logs
-*.log
+
+# ==========================================
+# ☕ JAVA, MAVEN & JAVA IDEs
+# ==========================================
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# STS / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IntelliJ IDEA & NetBeans
+.idea/
+*.iws
+*.iml
+*.ipr
+/nbproject/private/
+/nbbuild/
+/nbdist/
+/.nb-gradle/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+
+# ==========================================
+# 🌐 JAVASCRIPT & NODE.JS
+# ==========================================
+node_modules/
+dist-ssr/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pnpm-debug.log*
 
-node_modules
-dist
-dist-ssr
+
+# ==========================================
+# ⚙️ ENVIRONMENTS & CONFIGURATIONS
+# ==========================================
+.env
+.env.local
+.env.*.local
 *.local
-actions-runner/*
 
 
- 
+# ==========================================
+# 🛠️ EDITORS & OS FILES
+# ==========================================
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+
+# macOS / Windows / Linux
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+
+
+# ==========================================
+# 🐳 DOCKER & INFRASTRUCTURE
+# ==========================================
+docker-compose.override.yml
+.docker/
+actions-runner/
+
+
+# ==========================================
+# 🐈‍⬛ LOGS & LOCAL DATABASES
+# ==========================================
+logs/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+
+# ==========================================
+# 📝 AUXILIARY DOCUMENTATION
+# ==========================================
+HELP.md

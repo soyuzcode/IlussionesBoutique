@@ -1,75 +1,55 @@
-# React + TypeScript + Vite
+# Ilussions - Web App (Frontend)
+Frontend module for the **Ilussions** web application developed for **Ilussiones Boutique** by the **KEY CODE** team.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This module focuses on providing an intuitive, modern, and responsive user interface across mobile and desktop devices to digitize customer management, appointments, inventory, orders, and catalog browsing for Ilussiones Boutique—a store specializing in bridal and quinceañera gowns.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Technologies Used
 
-## React Compiler
+- **Framework / Bundler:** Vite
+- **Librería UI:** React
+- **Lenguaje:** TypeScript (`.ts`, `.tsx`)
+- **Gestor de paquetes:** Node Package Manager (`npm`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Included Modules and Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Customers & Appointments Form (Pantalla_01_FormularioCliente): Customer data registration, first appointment scheduling, and Google Calendar integration.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2. Inventory Management (Pantalla_02_Inventario): Query and update functions for available garments, stock items, and raw materials.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3. Document Generator (Pantalla_03_Documentos): Issuance of temporary quotes and PDF invoices.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+4. Order Tracking (Pantalla_04_EstadoPedidos): Status monitoring for dress tailoring, fitting stages, and accessories.
 
-```
+5. Digital Catalog (Pantalla_05_Catalogo): Visual gallery displaying available garments and accessories with photos and reference prices.
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## UI User Roles Supported
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Administrator:** Full access to manage orders, customer records, inventory, and auxiliary accounts
+- **Assistant:** Customer and order registration, appointment schedule lookup, and stock availability checking.
 
-```
+---
+
+## Frontend Directory Structure
+
+Frontend/
+├── public/              # Static assets and images
+├── src/                 # Application source code
+│   ├── assets/          # Graphic resources and styles
+│   ├── components/      # Reusable UI components
+│   └── ...
+├── index.html           # HTML entry point
+├── package.json         # Project dependencies and scripts
+├── tsconfig.json        # TypeScript configuration
+└── vite.config.ts       # Vite server configuration
+
+
+## Local Installation & Running Steps
+**Prerequisites:** Node.js installed
+
+Developed by **KEY CODE**
