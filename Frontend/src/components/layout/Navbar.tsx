@@ -1,31 +1,35 @@
 import React from 'react';
 
-export function Navbar() {
+interface NavbarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+export function Navbar({ activeTab, setActiveTab }: NavbarProps) {
+  const navItems = [
+    { id: 'Inicio', label: 'Inicio', icon: '🏠' },
+    { id: 'Clientes', label: 'Clientes', icon: '👥' },
+    { id: 'Pedidos', label: 'Pedidos', icon: '🧵' },
+    { id: 'Inventario', label: 'Inventario', icon: '📦' },
+  ];
+
   return (
-    <nav
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 2rem',
-        backgroundColor: '#1E293B',
-        color: '#FFFFFF',
-      }}
-    >
-      <h2 style={{ margin: 0, color: '#FFFFFF' }}>Ilusiones Boutique</h2>
-      <ul
-        style={{
-          display: 'flex',
-          gap: '20px',
-          listStyle: 'none',
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        <li>Inicio</li>
-        <li>Productos</li>
-        <li>Ventas</li>
-      </ul>
+    <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2.5 z-50 rounded-b-[24px]">
+      {navItems.map((item) => {
+        const isActive = activeTab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer text-[10px] font-semibold transition ${
+              isActive ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'
+            }`}
+          >
+            <span className="text-xl">{item.icon}</span>
+            {item.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
