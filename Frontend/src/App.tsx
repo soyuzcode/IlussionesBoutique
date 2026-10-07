@@ -23,6 +23,49 @@ const mockPedidos = [
   { id: 'P-103', client: 'Gabriela Alas', item: 'Vestido XV Años Rosa', status: 'Listo', deliveryDate: 'Mañana' },
 ];
 
+const API_URL = 'http://ilussionesboutique-production.up.railway.app/api';
+
+interface BackendCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface BackendAppointment {
+  id: string;
+  customer: BackendCustomer;
+  appointmentDate: string;
+  appointmentTime: string;
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+  googleEventId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+const mapAppointmentToCita = (appointment: BackendAppointment): Cita => {
+  const [hourString, minute] = appointment.appointmentTime.split(':');
+  const hour = Number(hourString);
+
+  const period = hour >= 12 ? 'PM' : 'AM';
+
+  const displayHour = hour % 12 || 12;
+
+  return {
+    id: appointment.id,
+    time: `${String(displayHour).padStart(2, '0')}:${minute}`,
+    period,
+    client: appointment.customer.name,
+    type: 'Cita',
+    status:
+      appointment.status === 'SCHEDULED'
+        ? 'active'
+        : appointment.status.toLowerCase(),
+    day: appointment.appointmentDate,
+  };
+};
+
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('Inicio');
@@ -39,15 +82,25 @@ export function App() {
   useEffect(() => {
     const cargarCitas = async () => {
       setCargandoCitas(true);
+
       try {
-        const res = await fetch('/data/citas.json');
-        if (!res.ok) throw new Error('citas.json error');
-        const data = await res.json();
-        setCitasHoy(data.today || []);
-        setCitasSemanales(data.week || []);
-      } catch {
-        setCitasHoy(mockToday);
-        setCitasSemanales(mockWeek);
+        const response = await fetch(`${API_URL}/appointment`);
+
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+
+        const appointments: BackendAppointment[] = await response.json();
+
+        const citas = appointments.map(mapAppointmentToCita);
+
+        setCitasHoy(citas);
+        setCitasSemanales(citas);
+      } catch (error) {
+        console.error('Error cargando citas:', error);
+
+        setCitasHoy([]);
+        setCitasSemanales([]);
       } finally {
         setCargandoCitas(false);
       }
@@ -65,16 +118,136 @@ export function App() {
     }
   };
 
-  const handleAgregarNuevaCita = (nuevaCitaData: { client: string; type: string; time: string; period: string }) => {
-    const nuevaCita: Cita = {
-      id: Date.now(),
-      client: nuevaCitaData.client,
-      type: nuevaCitaData.type,
-      time: nuevaCitaData.time,
-      period: nuevaCitaData.period,
-      status: 'active',
-    };
-    setCitasHoy((prev) => [nuevaCita, ...prev]);
+  const handleAgregarNuevaCita = async (nuevaCitaData: {
+    client: string;
+    type: string;
+    time: string;
+    period: string;
+  }) => {
+    try {
+      /*
+       * 1. Obtener los clientes existentes
+       */
+      const customersResponse = await fetch(`${API_URL}/customer`);
+
+      if (!customersResponse.ok) {
+        throw new Error('No se pudieron obtener los clientes');
+      }
+
+      const customers: BackendCustomer[] =
+        await customersResponse.json();
+
+      /*
+       * 2. Buscar si el cliente ya existe
+       */
+      let customer = customers.find(
+        (c) =>
+          c.name.toLowerCase() ===
+          nuevaCitaData.client.toLowerCase()
+      );
+
+      /*
+       * 3. Si no existe, crearlo
+       */
+      if (!customer) {
+        const customerResponse = await fetch(
+          `${API_URL}/customer`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: nuevaCitaData.client,
+              phone: '',
+            }),
+          }
+        );
+
+        if (!customerResponse.ok) {
+          throw new Error('No se pudo crear el cliente');
+        }
+
+        customer = await customerResponse.json();
+      }
+
+      /*
+       * 4. Convertir hora AM/PM → HH:mm:ss
+       */
+      let hour = Number(nuevaCitaData.time.split(':')[0]);
+      const minute = nuevaCitaData.time.split(':')[1];
+
+      if (nuevaCitaData.period === 'PM' && hour !== 12) {
+        hour += 12;
+      }
+
+      if (nuevaCitaData.period === 'AM' && hour === 12) {
+        hour = 0;
+      }
+
+      const appointmentTime =
+        `${String(hour).padStart(2, '0')}:${minute}:00`;
+
+      /*
+       * 5. Crear la cita
+       */
+      const appointmentResponse = await fetch(
+        `${API_URL}/appointment`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            customer: {
+              id: customer.id,
+            },
+            appointmentDate: new Date()
+              .toISOString()
+              .split('T')[0],
+            appointmentTime,
+            status: 'SCHEDULED',
+          }),
+        }
+      );
+
+      if (!appointmentResponse.ok) {
+        const errorText = await appointmentResponse.text();
+
+        throw new Error(
+          `No se pudo crear la cita: ${errorText}`
+        );
+      }
+
+      /*
+       * 6. Recargar citas desde el backend
+       */
+      const appointmentsResponse = await fetch(
+        `${API_URL}/appointment`
+      );
+
+      if (!appointmentsResponse.ok) {
+        throw new Error('No se pudieron recargar las citas');
+      }
+
+      const appointments: BackendAppointment[] =
+        await appointmentsResponse.json();
+
+      const citas = appointments.map(mapAppointmentToCita);
+
+      setCitasHoy(citas);
+      setCitasSemanales(citas);
+
+      /*
+       * 7. Cerrar modal
+       */
+      setIsNuevoClienteOpen(false);
+
+      console.log('✅ Cita creada correctamente');
+    } catch (error) {
+      console.error('❌ Error creando cita:', error);
+      alert('No se pudo crear la cita.');
+    }
   };
 
   return (
@@ -83,7 +256,7 @@ export function App() {
         <Login onLoginSuccess={() => setIsAuthenticated(true)} />
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
-          
+
           {/* Header Responsivo */}
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
             <div>
@@ -154,17 +327,15 @@ export function App() {
                     <div className="flex bg-gray-100 p-1 rounded-xl">
                       <button
                         onClick={() => setVistaCitas('hoy')}
-                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${
-                          vistaCitas === 'hoy' ? 'bg-white text-pink-600 shadow-xs' : 'text-gray-500'
-                        }`}
+                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${vistaCitas === 'hoy' ? 'bg-white text-pink-600 shadow-xs' : 'text-gray-500'
+                          }`}
                       >
                         Hoy
                       </button>
                       <button
                         onClick={() => setVistaCitas('semana')}
-                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${
-                          vistaCitas === 'semana' ? 'bg-white text-pink-600 shadow-xs' : 'text-gray-500'
-                        }`}
+                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${vistaCitas === 'semana' ? 'bg-white text-pink-600 shadow-xs' : 'text-gray-500'
+                          }`}
                       >
                         Esta Semana
                       </button>
@@ -329,9 +500,8 @@ export function App() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer text-[10px] sm:text-xs font-semibold transition ${
-                    isActive ? 'text-pink-600 font-bold' : 'text-gray-400 hover:text-pink-600'
-                  }`}
+                  className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer text-[10px] sm:text-xs font-semibold transition ${isActive ? 'text-pink-600 font-bold' : 'text-gray-400 hover:text-pink-600'
+                    }`}
                 >
                   <span className="text-lg sm:text-xl">{item.icon}</span>
                   {item.label}
