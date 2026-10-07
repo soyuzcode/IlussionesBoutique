@@ -32,6 +32,7 @@ const initialPedidos: Pedido[] = [
 ];
 
 export function App() {
+  // Aseguramos que la pantalla de Login aparezca primero siempre
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('Inicio');
   const [vistaCitas, setVistaCitas] = useState<'hoy' | 'semana'>('hoy');
@@ -48,22 +49,12 @@ export function App() {
   const [isNuevoClienteOpen, setIsNuevoClienteOpen] = useState<boolean>(false);
   const [busquedaCliente, setBusquedaCliente] = useState<string>('');
 
-  // Fecha dinámica de hoy
   const fechaHoyTexto = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-
-  // Función para formatear fechas a DD/MM/AAAA
-  const formatearFechaDDMMAAAA = (fechaStr?: string) => {
-    if (!fechaStr) return new Date().toLocaleDateString('es-ES');
-    if (fechaStr.includes('/')) return fechaStr;
-    const partes = fechaStr.split('-');
-    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
-    return fechaStr;
-  };
 
   useEffect(() => {
     const cargarCitas = async () => {
@@ -102,7 +93,6 @@ export function App() {
       time: nuevaCitaData.time,
       period: nuevaCitaData.period,
       status: 'active',
-      day: new Date().toLocaleDateString('es-ES'),
     };
     setCitasHoy((prev) => [nuevaCita, ...prev]);
   };
@@ -324,7 +314,6 @@ export function App() {
             onAgregarCita={handleAgregarNuevaCita}
           />
 
-          {/* Modal de Editar Cita */}
           {citaEditando && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -405,7 +394,6 @@ export function App() {
             </div>
           )}
 
-          {/* Modal de Editar Pedido */}
           {pedidoEditando && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -478,7 +466,6 @@ export function App() {
             </div>
           )}
 
-          {/* Modal de Detalle de Cita (Formato DD/MM/AAAA) */}
           {citaSeleccionada && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -500,9 +487,9 @@ export function App() {
 
                   <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
                     <div>
-                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Fecha / Horario</span>
+                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Horario</span>
                       <p className="text-gray-700 font-semibold">
-                        📅 {formatearFechaDDMMAAAA(citaSeleccionada.day)} • {citaSeleccionada.time} {citaSeleccionada.period || ''}
+                        ⏰ {citaSeleccionada.time} {citaSeleccionada.period || ''}
                       </p>
                     </div>
                     <div>
