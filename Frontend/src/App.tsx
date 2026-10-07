@@ -12,9 +12,9 @@ const mockToday: Cita[] = [
 ];
 
 const mockWeek: Cita[] = [
-  { id: 201, day: 'Wednesday 30', time: '10:00 AM', client: 'Gabriela Alas', type: 'Ajuste de Vestido Quinceañera' },
-  { id: 202, day: 'Thursday 01', time: '03:00 PM', client: 'Lucía Fernández', type: 'Consulta de Catálogo / Cotización' },
-  { id: 203, day: 'Friday 02', time: '11:30 AM', client: 'Camila Rivas', type: 'Segunda Prueba de Vestido' },
+  { id: 201, day: '30/09/2026', time: '10:00 AM', client: 'Gabriela Alas', type: 'Ajuste de Vestido Quinceañera' },
+  { id: 202, day: '01/10/2026', time: '03:00 PM', client: 'Lucía Fernández', type: 'Consulta de Catálogo / Cotización' },
+  { id: 203, day: '02/10/2026', time: '11:30 AM', client: 'Camila Rivas', type: 'Segunda Prueba de Vestido' },
 ];
 
 const mockPedidos = [
@@ -35,6 +35,23 @@ export function App() {
   const [citaSeleccionada, setCitaSeleccionada] = useState<Cita | null>(null);
   const [isNuevoClienteOpen, setIsNuevoClienteOpen] = useState<boolean>(false);
   const [busquedaCliente, setBusquedaCliente] = useState<string>('');
+
+  // 1. Fecha del día actualizada automáticamente
+  const fechaHoyTexto = new Date().toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  // Formateador auxiliar para fechas DD/MM/AAAA
+  const formatearFechaDDMMAAAA = (fechaStr?: string) => {
+    if (!fechaStr) return new Date().toLocaleDateString('es-ES');
+    if (fechaStr.includes('/')) return fechaStr;
+    const partes = fechaStr.split('-');
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return fechaStr;
+  };
 
   useEffect(() => {
     const cargarCitas = async () => {
@@ -84,11 +101,11 @@ export function App() {
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
           
-          {/* Header Responsivo */}
+          {/* Header Responsivo con Fecha Dinámica */}
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ilussiones Boutique</h1>
-              <p className="text-pink-200 text-xs sm:text-sm mt-0.5">Martes, 29 de Septiembre</p>
+              <p className="text-pink-200 text-xs sm:text-sm mt-0.5 capitalize">{fechaHoyTexto}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center text-pink-600 font-bold shadow text-xs sm:text-sm">
@@ -107,7 +124,6 @@ export function App() {
           <main className="flex-1 w-full p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {activeTab === 'Inicio' && (
               <>
-                {/* Alerta de notificación interactiva */}
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-xs flex items-start justify-between w-full">
                   <div className="flex items-start">
                     <span className="text-red-500 text-lg sm:text-xl mr-3">⚠️</span>
@@ -126,7 +142,6 @@ export function App() {
                   </button>
                 </div>
 
-                {/* Accesos Rápidos Interactivos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                   <button
                     onClick={() => setIsNuevoClienteOpen(true)}
@@ -145,7 +160,6 @@ export function App() {
                   </button>
                 </div>
 
-                {/* Agenda de Citas */}
                 <section className="w-full">
                   <div className="flex justify-between items-center mb-3">
                     <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
@@ -234,7 +248,15 @@ export function App() {
 
             {activeTab === 'Pedidos' && (
               <div className="space-y-4 w-full">
-                <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+                  <button
+                    onClick={() => alert('Modo edición de pedidos habilitado')}
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-pink-50 text-pink-600 rounded-xl text-xs font-bold transition"
+                  >
+                    ✏️ Editar Pedidos
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {mockPedidos.map((ped) => (
                     <div key={ped.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2">
@@ -246,7 +268,15 @@ export function App() {
                       </div>
                       <h3 className="font-bold text-gray-800 text-sm">{ped.client}</h3>
                       <p className="text-xs text-gray-500">{ped.item}</p>
-                      <p className="text-[11px] text-gray-400 font-medium">Entrega estimada: {ped.deliveryDate}</p>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                        <span className="text-[11px] text-gray-400 font-medium">Entrega: {ped.deliveryDate}</span>
+                        <button
+                          onClick={() => alert(`Editar pedido ${ped.id}`)}
+                          className="text-xs text-pink-600 font-bold hover:underline"
+                        >
+                          Editar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -256,14 +286,13 @@ export function App() {
             {activeTab === 'Inventario' && <ProductTable />}
           </main>
 
-          {/* Modal para Crear Cita / Cliente */}
           <NuevoClienteModal
             isOpen={isNuevoClienteOpen}
             onClose={() => setIsNuevoClienteOpen(false)}
             onAgregarCita={handleAgregarNuevaCita}
           />
 
-          {/* Modal de Detalle de Cita */}
+          {/* Modal de Detalle de Cita con Formato DD/MM/AAAA y Botón de Edición */}
           {citaSeleccionada && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -285,10 +314,9 @@ export function App() {
 
                   <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
                     <div>
-                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Horario</span>
+                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Fecha / Horario</span>
                       <p className="text-gray-700 font-semibold">
-                        {citaSeleccionada.day ? `${citaSeleccionada.day} • ` : ''}
-                        {citaSeleccionada.time} {citaSeleccionada.period || ''}
+                        📅 {formatearFechaDDMMAAAA(citaSeleccionada.day)} • {citaSeleccionada.time} {citaSeleccionada.period || ''}
                       </p>
                     </div>
                     <div>
@@ -306,17 +334,24 @@ export function App() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setCitaSeleccionada(null)}
-                  className="w-full py-2.5 bg-pink-600 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-pink-700 transition active:scale-95 shadow-md"
-                >
-                  Cerrar
-                </button>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => alert(`Editar cita de ${citaSeleccionada.client}`)}
+                    className="flex-1 py-2 bg-pink-100 text-pink-700 rounded-xl text-xs font-bold hover:bg-pink-200 transition"
+                  >
+                    ✏️ Editar Cita
+                  </button>
+                  <button
+                    onClick={() => setCitaSeleccionada(null)}
+                    className="flex-1 py-2 bg-pink-600 text-white rounded-xl text-xs font-bold hover:bg-pink-700 transition"
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Navegación Fija Inferior */}
           <nav className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 flex justify-around py-3 z-40 shadow-lg">
             {[
               { id: 'Inicio', label: 'Inicio', icon: '🏠' },
