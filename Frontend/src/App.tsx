@@ -40,15 +40,15 @@ export function App() {
   const [citasSemanales, setCitasSemanales] = useState<Cita[]>([]);
   const [cargandoCitas, setCargandoCitas] = useState<boolean>(true);
 
-  // Estado para gestión y edición de pedidos
   const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null);
 
   const [citaSeleccionada, setCitaSeleccionada] = useState<Cita | null>(null);
+  const [citaEditando, setCitaEditando] = useState<Cita | null>(null);
   const [isNuevoClienteOpen, setIsNuevoClienteOpen] = useState<boolean>(false);
   const [busquedaCliente, setBusquedaCliente] = useState<string>('');
 
-  // Fecha de hoy actualizada de forma dinámica
+  // Fecha dinámica de hoy
   const fechaHoyTexto = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -56,7 +56,7 @@ export function App() {
     year: 'numeric',
   });
 
-  // Formateador para garantizar formato día/mes/año (DD/MM/AAAA)
+  // Función para formatear fechas a DD/MM/AAAA
   const formatearFechaDDMMAAAA = (fechaStr?: string) => {
     if (!fechaStr) return new Date().toLocaleDateString('es-ES');
     if (fechaStr.includes('/')) return fechaStr;
@@ -95,31 +95,33 @@ export function App() {
   };
 
   const handleAgregarNuevaCita = (nuevaCitaData: { client: string; type: string; time: string; period: string }) => {
-    // Validaciones estrictas antes de agregar
-    if (!nuevaCitaData.client.trim() || !nuevaCitaData.type.trim() || !nuevaCitaData.time.trim()) {
-      alert('Faltan datos por completar o existe un campo inválido.');
-      return;
-    }
-
     const nuevaCita: Cita = {
       id: Date.now(),
-      client: nuevaCitaData.client.trim(),
-      type: nuevaCitaData.type.trim(),
-      time: nuevaCitaData.time.trim(),
-      period: nuevaCitaData.period || 'AM',
+      client: nuevaCitaData.client,
+      type: nuevaCitaData.type,
+      time: nuevaCitaData.time,
+      period: nuevaCitaData.period,
       status: 'active',
+      day: new Date().toLocaleDateString('es-ES'),
     };
     setCitasHoy((prev) => [nuevaCita, ...prev]);
+  };
+
+  const handleGuardarCitaEditada = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citaEditando) return;
+
+    const actualizar = (lista: Cita[]) =>
+      lista.map((c) => (c.id === citaEditando.id ? citaEditando : c));
+
+    setCitasHoy(actualizar(citasHoy));
+    setCitasSemanales(actualizar(citasSemanales));
+    setCitaEditando(null);
   };
 
   const handleGuardarPedido = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pedidoEditando) return;
-
-    if (!pedidoEditando.client.trim() || !pedidoEditando.deliveryDate.trim()) {
-      alert('Faltan datos por completar');
-      return;
-    }
 
     setPedidos((prev) =>
       prev.map((p) => (p.id === pedidoEditando.id ? pedidoEditando : p))
@@ -133,8 +135,6 @@ export function App() {
         <Login onLoginSuccess={() => setIsAuthenticated(true)} />
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
-          
-          {/* Header Responsivo con Fecha Actualizada */}
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ilussiones Boutique</h1>
@@ -153,7 +153,6 @@ export function App() {
             </div>
           </header>
 
-          {/* Contenido Principal */}
           <main className="flex-1 w-full p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {activeTab === 'Inicio' && (
               <>
@@ -163,7 +162,7 @@ export function App() {
                     <div>
                       <h3 className="text-red-800 font-bold text-xs sm:text-sm">Actualización Pendiente</h3>
                       <p className="text-red-600 text-xs sm:text-sm mt-0.5">
-                        El vestido de "María López" se entrega en 3 días. Confirms su estado.
+                        El vestido de "María López" se entrega en 3 días. Confirma su estado.
                       </p>
                     </div>
                   </div>
@@ -224,7 +223,12 @@ export function App() {
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden divide-y divide-gray-100 w-full">
                       {vistaCitas === 'hoy' &&
                         citasHoy.map((cita) => (
-                          <CitaCard key={cita.id} cita={cita} onVerDetalle={handleVerDetalleCita} />
+                          <CitaCard
+                            key={cita.id}
+                            cita={cita}
+                            onVerDetalle={handleVerDetalleCita}
+                            onEditarCita={(c) => setCitaEditando({ ...c })}
+                          />
                         ))}
 
                       {vistaCitas === 'semana' &&
@@ -234,6 +238,7 @@ export function App() {
                             cita={cita}
                             esVistaSemanal={true}
                             onVerDetalle={handleVerDetalleCita}
+                            onEditarCita={(c) => setCitaEditando({ ...c })}
                           />
                         ))}
                     </div>
@@ -279,7 +284,6 @@ export function App() {
               </div>
             )}
 
-            {/* Pestaña de Pedidos con opción de Editar */}
             {activeTab === 'Pedidos' && (
               <div className="space-y-4 w-full">
                 <div className="flex justify-between items-center">
@@ -314,14 +318,94 @@ export function App() {
             {activeTab === 'Inventario' && <ProductTable />}
           </main>
 
-          {/* Modal para Crear Cita / Cliente */}
           <NuevoClienteModal
             isOpen={isNuevoClienteOpen}
             onClose={() => setIsNuevoClienteOpen(false)}
             onAgregarCita={handleAgregarNuevaCita}
           />
 
-          {/* Modal para Editar Pedidos Agendados */}
+          {/* Modal de Editar Cita */}
+          {citaEditando && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Editar Cita</h3>
+                  <button
+                    onClick={() => setCitaEditando(null)}
+                    className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleGuardarCitaEditada} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Clienta</label>
+                    <input
+                      type="text"
+                      value={citaEditando.client}
+                      onChange={(e) => setCitaEditando({ ...citaEditando, client: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Servicio / Motivo</label>
+                    <input
+                      type="text"
+                      value={citaEditando.type}
+                      onChange={(e) => setCitaEditando({ ...citaEditando, type: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Hora</label>
+                      <input
+                        type="text"
+                        value={citaEditando.time}
+                        onChange={(e) => setCitaEditando({ ...citaEditando, time: e.target.value })}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Horario</label>
+                      <select
+                        value={citaEditando.period || 'AM'}
+                        onChange={(e) => setCitaEditando({ ...citaEditando, period: e.target.value })}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none cursor-pointer focus:border-pink-500"
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCitaEditando(null)}
+                      className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold cursor-pointer hover:bg-gray-200 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 bg-pink-600 text-white rounded-xl font-bold cursor-pointer hover:bg-pink-700 transition"
+                    >
+                      Guardar Cambios
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Editar Pedido */}
           {pedidoEditando && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -394,7 +478,7 @@ export function App() {
             </div>
           )}
 
-          {/* Modal de Detalle de Cita con Formato Día/Mes/Año */}
+          {/* Modal de Detalle de Cita (Formato DD/MM/AAAA) */}
           {citaSeleccionada && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -446,7 +530,6 @@ export function App() {
             </div>
           )}
 
-          {/* Navegación Fija Inferior */}
           <nav className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 flex justify-around py-3 z-40 shadow-lg">
             {[
               { id: 'Inicio', label: 'Inicio', icon: '🏠' },
