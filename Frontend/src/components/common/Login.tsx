@@ -7,9 +7,16 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      setErrorMsg('User or password wrong');
+      return;
+    }
+
     if (onLoginSuccess) {
       onLoginSuccess();
     }
@@ -18,26 +25,44 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen w-full bg-white flex flex-col justify-center items-center p-6 sm:p-10">
       <div className="w-full max-w-md mx-auto space-y-6">
-        {/* Logo / Header */}
+        
+        {/* LOGO OFICIAL - CÍRCULO CON BORDES Y TIPOGRAFÍA DE LA BOUTIQUE */}
         <div className="flex flex-col items-center text-center space-y-3">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold text-lg shadow-sm">
-            Logo
+          <div className="w-36 h-36 rounded-full bg-[#fde8f0] border-4 border-dashed border-pink-400 p-2 flex items-center justify-center shadow-sm">
+            <div className="w-full h-full rounded-full bg-white flex flex-col items-center justify-center p-2 text-center shadow-inner">
+              <span className="font-serif italic text-2xl font-bold text-gray-800 tracking-tight leading-tight">
+                Ilussiones Boutique
+              </span>
+              <span className="text-[10px] text-pink-400 font-light mt-0.5 tracking-wider">
+                Una gran historia
+              </span>
+            </div>
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-pink-600 tracking-tight">Ilussiones</h1>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">Tienda de Ilussiones Boutique.</p>
+            <h1 className="text-xl font-bold text-gray-700 mt-2">Bienvenida</h1>
+            <p className="text-xs text-gray-400">Ingresa tus credenciales para acceder</p>
           </div>
         </div>
 
-        {/* Formulario */}
+        {/* BANNER DE ERROR EN CASO DE CAMPOS VACÍOS O INCORRECTOS */}
+        {errorMsg && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-3.5 rounded-r-xl text-xs text-red-700 font-semibold flex items-center gap-2 shadow-xs animate-fade-in">
+            <span className="text-base">⚠️</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* FORMULARIO */}
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">Email</label>
             <input
               type="email"
-              required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errorMsg) setErrorMsg(null);
+              }}
               placeholder="your.email@example.com"
               className="w-full p-3.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition"
             />
@@ -47,9 +72,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
             <input
               type="password"
-              required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errorMsg) setErrorMsg(null);
+              }}
               placeholder="••••••••"
               className="w-full p-3.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition"
             />

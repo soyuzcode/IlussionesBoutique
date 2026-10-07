@@ -7,35 +7,13 @@ import NuevoClienteModal from './components/common/NewClientModel';
 
 import type { Cita } from './components/common/CitaCard';
 
-const API_URL =
-  'http://ilussionesboutique-production.up.railway.app/api';
-
-// ============================================================
-// TIPOS DEL BACKEND
-// ============================================================
-
-interface BackendCustomer {
+interface Pedido {
   id: string;
-  name: string;
-  phone: string;
-  createdAt?: string;
-  updatedAt?: string;
+  client: string;
+  item: string;
+  status: string;
+  deliveryDate: string;
 }
-
-interface BackendAppointment {
-  id: string;
-  customer: BackendCustomer;
-  appointmentDate: string;
-  appointmentTime: string;
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
-  googleEventId?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// ============================================================
-// MOCKS
-// ============================================================
 
 const mockToday: Cita[] = [
   {
@@ -133,9 +111,20 @@ export function App() {
   const [busquedaCliente, setBusquedaCliente] =
     useState<string>('');
 
-  // ==========================================================
-  // CARGAR CITAS DESDE SPRING
-  // ==========================================================
+  const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
+  const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null);
+
+  const [citaSeleccionada, setCitaSeleccionada] = useState<Cita | null>(null);
+  const [citaEditando, setCitaEditando] = useState<Cita | null>(null);
+  const [isNuevoClienteOpen, setIsNuevoClienteOpen] = useState<boolean>(false);
+  const [busquedaCliente, setBusquedaCliente] = useState<string>('');
+
+  const fechaHoyTexto = new Date().toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   useEffect(() => {
     const cargarCitas = async () => {
@@ -494,9 +483,27 @@ export function App() {
     }
   };
 
-  // ==========================================================
-  // RENDER
-  // ==========================================================
+  const handleGuardarCitaEditada = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citaEditando) return;
+
+    const actualizar = (lista: Cita[]) =>
+      lista.map((c) => (c.id === citaEditando.id ? citaEditando : c));
+
+    setCitasHoy(actualizar(citasHoy));
+    setCitasSemanales(actualizar(citasSemanales));
+    setCitaEditando(null);
+  };
+
+  const handleGuardarPedido = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pedidoEditando) return;
+
+    setPedidos((prev) =>
+      prev.map((p) => (p.id === pedidoEditando.id ? pedidoEditando : p))
+    );
+    setPedidoEditando(null);
+  };
 
   return (
     <div className="min-h-screen w-full bg-white font-sans text-gray-800 flex flex-col">
@@ -515,13 +522,8 @@ export function App() {
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
 
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                Ilussiones Boutique
-              </h1>
-
-              <p className="text-pink-200 text-xs sm:text-sm mt-0.5">
-                Martes, 29 de Septiembre
-              </p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ilussiones Boutique</h1>
+              <p className="text-pink-200 text-xs sm:text-sm mt-0.5 capitalize">{fechaHoyTexto}</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -681,9 +683,19 @@ export function App() {
                           <CitaCard
                             key={cita.id}
                             cita={cita}
-                            onVerDetalle={
-                              handleVerDetalleCita
-                            }
+                            onVerDetalle={handleVerDetalleCita}
+                            onEditarCita={(c) => setCitaEditando({ ...c })}
+                          />
+                        ))}
+
+                      {vistaCitas === 'semana' &&
+                        citasSemanales.map((cita) => (
+                          <CitaCard
+                            key={cita.id}
+                            cita={cita}
+                            esVistaSemanal={true}
+                            onVerDetalle={handleVerDetalleCita}
+                            onEditarCita={(c) => setCitaEditando({ ...c })}
                           />
                         ))}
 
@@ -792,19 +804,12 @@ export function App() {
 
             {activeTab === 'Pedidos' && (
               <div className="space-y-4 w-full">
-
-                <h2 className="text-base sm:text-lg font-bold text-gray-800">
-                  Seguimiento de Pedidos
-                </h2>
-
+                <div className="flex justify-between items-center">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                  {mockPedidos.map((ped) => (
-                    <div
-                      key={ped.id}
-                      className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2"
-                    >
-
+                  {pedidos.map((ped) => (
+                    <div key={ped.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2">
                       <div className="flex justify-between items-center">
 
                         <span className="text-xs font-bold text-pink-600">
@@ -815,6 +820,17 @@ export function App() {
                           {ped.status}
                         </span>
 
+                      </div>
+                      <h3 className="font-bold text-gray-800 text-sm">{ped.client}</h3>
+                      <p className="text-xs text-gray-500">{ped.item}</p>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                        <span className="text-[11px] text-gray-400 font-medium">Entrega: {ped.deliveryDate}</span>
+                        <button
+                          onClick={() => setPedidoEditando({ ...ped })}
+                          className="text-xs text-pink-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          ✏️ Editar
+                        </button>
                       </div>
 
                       <h3 className="font-bold text-gray-800 text-sm">
@@ -862,6 +878,157 @@ export function App() {
             }
           />
 
+          {citaEditando && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Editar Cita</h3>
+                  <button
+                    onClick={() => setCitaEditando(null)}
+                    className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleGuardarCitaEditada} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Clienta</label>
+                    <input
+                      type="text"
+                      value={citaEditando.client}
+                      onChange={(e) => setCitaEditando({ ...citaEditando, client: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Servicio / Motivo</label>
+                    <input
+                      type="text"
+                      value={citaEditando.type}
+                      onChange={(e) => setCitaEditando({ ...citaEditando, type: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Hora</label>
+                      <input
+                        type="text"
+                        value={citaEditando.time}
+                        onChange={(e) => setCitaEditando({ ...citaEditando, time: e.target.value })}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Horario</label>
+                      <select
+                        value={citaEditando.period || 'AM'}
+                        onChange={(e) => setCitaEditando({ ...citaEditando, period: e.target.value })}
+                        className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none cursor-pointer focus:border-pink-500"
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCitaEditando(null)}
+                      className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold cursor-pointer hover:bg-gray-200 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 bg-pink-600 text-white rounded-xl font-bold cursor-pointer hover:bg-pink-700 transition"
+                    >
+                      Guardar Cambios
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {pedidoEditando && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
+                    Editar Pedido ({pedidoEditando.id})
+                  </h3>
+                  <button
+                    onClick={() => setPedidoEditando(null)}
+                    className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleGuardarPedido} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Cliente</label>
+                    <input
+                      type="text"
+                      value={pedidoEditando.client}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, client: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Estado del Pedido</label>
+                    <select
+                      value={pedidoEditando.status}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, status: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none cursor-pointer focus:border-pink-500"
+                    >
+                      <option value="Pendiente Entrega">Pendiente Entrega</option>
+                      <option value="En Confección">En Confección</option>
+                      <option value="Listo">Listo</option>
+                      <option value="Entregado">Entregado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Estimación de Entrega</label>
+                    <input
+                      type="text"
+                      value={pedidoEditando.deliveryDate}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, deliveryDate: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPedidoEditando(null)}
+                      className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold cursor-pointer hover:bg-gray-200 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 bg-pink-600 text-white rounded-xl font-bold cursor-pointer hover:bg-pink-700 transition"
+                    >
+                      Guardar Cambios
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
           {/* ==================================================
               MODAL DETALLE CITA
           ================================================== */}
@@ -911,6 +1078,7 @@ export function App() {
                       </span>
 
                       <p className="text-gray-700 font-semibold">
+                        ⏰ {citaSeleccionada.time} {citaSeleccionada.period || ''}
 
                         {citaSeleccionada.day
                           ? `${citaSeleccionada.day} • `
