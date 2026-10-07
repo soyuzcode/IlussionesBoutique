@@ -1,39 +1,69 @@
 package com.keycode.ilussioness_backend.models;
 
-import java.util.Date;
+import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
+@Entity
+@Table(name = "appointment")
 public class Appointment {
-    private String appointmentId;
-    private Date date;
-    private String time; // 'hora: Time' del UML
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
+
+    @Column(name = "appointment_date", nullable = false)
+    private LocalDate appointmentDate;
+
+    @Column(name = "appointment_time", nullable = false)
+    private LocalTime appointmentTime;
+
+    private String status;
+
+    @Column(name = "google_event_id")
+    private String googleEventId;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private OffsetDateTime createdAt;
+
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private OffsetDateTime updatedAt;
 
     public Appointment() {}
 
-    public Appointment(String appointmentId, Date date, String time) {
-        this.appointmentId = appointmentId;
-        this.date = date;
-        this.time = time;
-    }
-
-    public void scheduleAppointment() {
-        // agendar cita
-    }
-
-    public void cancelAppointment() {
-        // cancelar cita
-    }
-
-    public void syncGoogleCalendar() {
-        // sincronizar calendario de Google
+    public Appointment(Customer customer, LocalDate appointmentDate, LocalTime appointmentTime, String status) {
+        this.customer = customer;
+        this.appointmentDate = appointmentDate;
+        this.appointmentTime = appointmentTime;
+        this.status = status;
     }
 
     // Getters y Setters
-    public String getAppointmentId() { return appointmentId; }
-    public void setAppointmentId(String appointmentId) { this.appointmentId = appointmentId; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
-    public Date getDate() { return date; }
-    public void setDate(Date date) { this.date = date; }
+    public Customer getCustomer() { return customer; }
+    public void setCustomer(Customer customer) { this.customer = customer; }
 
-    public String getTime() { return time; }
-    public void setTime(String time) { this.time = time; }
+    public LocalDate getAppointmentDate() { return appointmentDate; }
+    public void setAppointmentDate(LocalDate appointmentDate) { this.appointmentDate = appointmentDate; }
+
+    public LocalTime getAppointmentTime() { return appointmentTime; }
+    public void setAppointmentTime(LocalTime appointmentTime) { this.appointmentTime = appointmentTime; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getGoogleEventId() { return googleEventId; }
+    public void setGoogleEventId(String googleEventId) { this.googleEventId = googleEventId; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }
+
