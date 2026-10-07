@@ -1,0 +1,51 @@
+{
+  "today": [
+    {
+      "id": 101,
+      "time": "09:00",
+      "period": "AM",
+      "client": "Carla Mendoza",
+      "type": "Prueba de Vestido",
+      "status": "active"
+    },
+    {
+      "id": 102,
+      "time": "11:30",
+      "period": "AM",
+      "client": "Andrea Gómez",
+      "type": "Toma de Medidas",
+      "status": "active"
+    },
+    {
+      "id": 103,
+      "time": "14:00",
+      "period": "PM",
+      "client": "Sofía Alvarado",
+      "type": "Primera toma de medidas",
+      "status": "active"
+    }
+  ],
+  "week": [
+    {
+      "id": 201,
+      "day": "Wednesday 30",
+      "time": "10:00 AM",
+      "client": "Gabriela Alas",
+      "type": "Ajuste de Vestido Quinceañera"
+    },
+    {
+      "id": 202,
+      "day": "Thursday 01",
+      "time": "03:00 PM",
+      "client": "Lucía Fernández",
+      "type": "Consulta de Catálogo / Cotización"
+    },
+    {
+      "id": 203,
+      "day": "Friday 02",
+      "time": "11:30 AM",
+      "client": "Camila Rivas",
+      "type": "Segunda Prueba de Vestido"
+    }
+  ]
+}
