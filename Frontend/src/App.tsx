@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Login from './components/common/Login';
 import ProductTable from './components/tables/ProductTable';
 import CitaCard from './components/common/CitaCard';
