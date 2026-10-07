@@ -5,6 +5,14 @@ import CitaCard from './components/common/CitaCard';
 import NuevoClienteModal from './components/common/NewClientModel';
 import type { Cita } from './components/common/CitaCard';
 
+interface Pedido {
+  id: string;
+  client: string;
+  item: string;
+  status: string;
+  deliveryDate: string;
+}
+
 const mockToday: Cita[] = [
   { id: 101, time: '09:00', period: 'AM', client: 'Carla Mendoza', type: 'Prueba de Vestido', status: 'active' },
   { id: 102, time: '11:30', period: 'AM', client: 'Andrea Gómez', type: 'Toma de Medidas', status: 'active' },
@@ -12,12 +20,12 @@ const mockToday: Cita[] = [
 ];
 
 const mockWeek: Cita[] = [
-  { id: 201, day: 'Wednesday 30', time: '10:00 AM', client: 'Gabriela Alas', type: 'Ajuste de Vestido Quinceañera' },
-  { id: 202, day: 'Thursday 01', time: '03:00 PM', client: 'Lucía Fernández', type: 'Consulta de Catálogo / Cotización' },
-  { id: 203, day: 'Friday 02', time: '11:30 AM', client: 'Camila Rivas', type: 'Segunda Prueba de Vestido' },
+  { id: 201, day: '30/09/2026', time: '10:00 AM', client: 'Gabriela Alas', type: 'Ajuste de Vestido Quinceañera' },
+  { id: 202, day: '01/10/2026', time: '03:00 PM', client: 'Lucía Fernández', type: 'Consulta de Catálogo / Cotización' },
+  { id: 203, day: '02/10/2026', time: '11:30 AM', client: 'Camila Rivas', type: 'Segunda Prueba de Vestido' },
 ];
 
-const mockPedidos = [
+const initialPedidos: Pedido[] = [
   { id: 'P-101', client: 'María López', item: 'Vestido de Gala Rojo', status: 'Pendiente Entrega', deliveryDate: '3 días' },
   { id: 'P-102', client: 'Elena Martínez', item: 'Vestido Novia Seda', status: 'En Confección', deliveryDate: '10 días' },
   { id: 'P-103', client: 'Gabriela Alas', item: 'Vestido XV Años Rosa', status: 'Listo', deliveryDate: 'Mañana' },
@@ -32,9 +40,30 @@ export function App() {
   const [citasSemanales, setCitasSemanales] = useState<Cita[]>([]);
   const [cargandoCitas, setCargandoCitas] = useState<boolean>(true);
 
+  // Estado para gestión y edición de pedidos
+  const [pedidos, setPedidos] = useState<Pedido[]>(initialPedidos);
+  const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null);
+
   const [citaSeleccionada, setCitaSeleccionada] = useState<Cita | null>(null);
   const [isNuevoClienteOpen, setIsNuevoClienteOpen] = useState<boolean>(false);
   const [busquedaCliente, setBusquedaCliente] = useState<string>('');
+
+  // Fecha de hoy actualizada de forma dinámica
+  const fechaHoyTexto = new Date().toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  // Formateador para garantizar formato día/mes/año (DD/MM/AAAA)
+  const formatearFechaDDMMAAAA = (fechaStr?: string) => {
+    if (!fechaStr) return new Date().toLocaleDateString('es-ES');
+    if (fechaStr.includes('/')) return fechaStr;
+    const partes = fechaStr.split('-');
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return fechaStr;
+  };
 
   useEffect(() => {
     const cargarCitas = async () => {
@@ -66,15 +95,36 @@ export function App() {
   };
 
   const handleAgregarNuevaCita = (nuevaCitaData: { client: string; type: string; time: string; period: string }) => {
+    // Validaciones estrictas antes de agregar
+    if (!nuevaCitaData.client.trim() || !nuevaCitaData.type.trim() || !nuevaCitaData.time.trim()) {
+      alert('Faltan datos por completar o existe un campo inválido.');
+      return;
+    }
+
     const nuevaCita: Cita = {
       id: Date.now(),
-      client: nuevaCitaData.client,
-      type: nuevaCitaData.type,
-      time: nuevaCitaData.time,
-      period: nuevaCitaData.period,
+      client: nuevaCitaData.client.trim(),
+      type: nuevaCitaData.type.trim(),
+      time: nuevaCitaData.time.trim(),
+      period: nuevaCitaData.period || 'AM',
       status: 'active',
     };
     setCitasHoy((prev) => [nuevaCita, ...prev]);
+  };
+
+  const handleGuardarPedido = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pedidoEditando) return;
+
+    if (!pedidoEditando.client.trim() || !pedidoEditando.deliveryDate.trim()) {
+      alert('Faltan datos por completar');
+      return;
+    }
+
+    setPedidos((prev) =>
+      prev.map((p) => (p.id === pedidoEditando.id ? pedidoEditando : p))
+    );
+    setPedidoEditando(null);
   };
 
   return (
@@ -84,11 +134,11 @@ export function App() {
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
           
-          {/* Header Responsivo */}
+          {/* Header Responsivo con Fecha Actualizada */}
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ilussiones Boutique</h1>
-              <p className="text-pink-200 text-xs sm:text-sm mt-0.5">Martes, 29 de Septiembre</p>
+              <p className="text-pink-200 text-xs sm:text-sm mt-0.5 capitalize">{fechaHoyTexto}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center text-pink-600 font-bold shadow text-xs sm:text-sm">
@@ -107,14 +157,13 @@ export function App() {
           <main className="flex-1 w-full p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
             {activeTab === 'Inicio' && (
               <>
-                {/* Alerta de notificación interactiva */}
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-xs flex items-start justify-between w-full">
                   <div className="flex items-start">
                     <span className="text-red-500 text-lg sm:text-xl mr-3">⚠️</span>
                     <div>
                       <h3 className="text-red-800 font-bold text-xs sm:text-sm">Actualización Pendiente</h3>
                       <p className="text-red-600 text-xs sm:text-sm mt-0.5">
-                        El vestido de "María López" se entrega en 3 días. Confirma su estado.
+                        El vestido de "María López" se entrega en 3 días. Confirms su estado.
                       </p>
                     </div>
                   </div>
@@ -126,7 +175,6 @@ export function App() {
                   </button>
                 </div>
 
-                {/* Accesos Rápidos Interactivos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                   <button
                     onClick={() => setIsNuevoClienteOpen(true)}
@@ -145,7 +193,6 @@ export function App() {
                   </button>
                 </div>
 
-                {/* Agenda de Citas */}
                 <section className="w-full">
                   <div className="flex justify-between items-center mb-3">
                     <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
@@ -232,11 +279,14 @@ export function App() {
               </div>
             )}
 
+            {/* Pestaña de Pedidos con opción de Editar */}
             {activeTab === 'Pedidos' && (
               <div className="space-y-4 w-full">
-                <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {mockPedidos.map((ped) => (
+                  {pedidos.map((ped) => (
                     <div key={ped.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-pink-600">{ped.id}</span>
@@ -246,7 +296,15 @@ export function App() {
                       </div>
                       <h3 className="font-bold text-gray-800 text-sm">{ped.client}</h3>
                       <p className="text-xs text-gray-500">{ped.item}</p>
-                      <p className="text-[11px] text-gray-400 font-medium">Entrega estimada: {ped.deliveryDate}</p>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                        <span className="text-[11px] text-gray-400 font-medium">Entrega: {ped.deliveryDate}</span>
+                        <button
+                          onClick={() => setPedidoEditando({ ...ped })}
+                          className="text-xs text-pink-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          ✏️ Editar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -263,7 +321,80 @@ export function App() {
             onAgregarCita={handleAgregarNuevaCita}
           />
 
-          {/* Modal de Detalle de Cita */}
+          {/* Modal para Editar Pedidos Agendados */}
+          {pedidoEditando && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
+                    Editar Pedido ({pedidoEditando.id})
+                  </h3>
+                  <button
+                    onClick={() => setPedidoEditando(null)}
+                    className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleGuardarPedido} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Cliente</label>
+                    <input
+                      type="text"
+                      value={pedidoEditando.client}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, client: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Estado del Pedido</label>
+                    <select
+                      value={pedidoEditando.status}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, status: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none cursor-pointer focus:border-pink-500"
+                    >
+                      <option value="Pendiente Entrega">Pendiente Entrega</option>
+                      <option value="En Confección">En Confección</option>
+                      <option value="Listo">Listo</option>
+                      <option value="Entregado">Entregado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Estimación de Entrega</label>
+                    <input
+                      type="text"
+                      value={pedidoEditando.deliveryDate}
+                      onChange={(e) => setPedidoEditando({ ...pedidoEditando, deliveryDate: e.target.value })}
+                      className="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPedidoEditando(null)}
+                      className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold cursor-pointer hover:bg-gray-200 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 bg-pink-600 text-white rounded-xl font-bold cursor-pointer hover:bg-pink-700 transition"
+                    >
+                      Guardar Cambios
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Detalle de Cita con Formato Día/Mes/Año */}
           {citaSeleccionada && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
@@ -285,10 +416,9 @@ export function App() {
 
                   <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
                     <div>
-                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Horario</span>
+                      <span className="text-gray-400 text-[10px] block uppercase font-bold">Fecha / Horario</span>
                       <p className="text-gray-700 font-semibold">
-                        {citaSeleccionada.day ? `${citaSeleccionada.day} • ` : ''}
-                        {citaSeleccionada.time} {citaSeleccionada.period || ''}
+                        📅 {formatearFechaDDMMAAAA(citaSeleccionada.day)} • {citaSeleccionada.time} {citaSeleccionada.period || ''}
                       </p>
                     </div>
                     <div>
