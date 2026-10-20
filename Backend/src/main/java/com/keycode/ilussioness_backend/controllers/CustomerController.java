@@ -2,7 +2,10 @@ package com.keycode.ilussioness_backend.controllers;
 
 import com.keycode.ilussioness_backend.models.Customer;
 import com.keycode.ilussioness_backend.repositories.CustomerRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 import java.util.List;
 
@@ -25,5 +28,15 @@ public class CustomerController {
     @PostMapping
     public Customer createCustomer(@RequestBody Customer customer) {
         return customerRepository.save(customer);
+    }
+
+    // --- NUEVO MÉTODO PARA REMOVER CLIENTE ---
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCustomer(@PathVariable UUID id) {
+        if (!customerRepository.existsById(id)) {
+            return ResponseEntity.notFound().build(); // Si no existe el id, devuelve 404
+        }
+        customerRepository.deleteById(id);
+        return ResponseEntity.noContent().build(); // Devuelve 204 si se eliminó con éxito
     }
 }

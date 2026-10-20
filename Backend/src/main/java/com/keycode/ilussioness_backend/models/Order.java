@@ -1,44 +1,52 @@
 package com.keycode.ilussioness_backend.models;
 
-import java.util.Date;
-import java.util.List;
+import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.util.UUID;
 
+@Entity
+@Table(name = "orders") // por si "order" es una palabra reservada en SQL
 public class Order {
-    private String orderId;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @Column(name = "event_type")
     private String eventType;
-    private Date deliveryDate;
-    private List<Product> products; // Agregación de Producto (0..* a 1..*) del UML
+
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate;
 
     public Order() {}
 
-    public Order(String orderId, String eventType, Date deliveryDate, List<Product> products) {
-        this.orderId = orderId;
+    public Order(String eventType, LocalDate deliveryDate) {
         this.eventType = eventType;
         this.deliveryDate = deliveryDate;
-        this.products = products;
-    }
-
-    public void processPayment() {
-        // registrar pago
-    }
-
-    public void removeProduct(Product product) {
-        // eliminar producto de la lista
-        if (this.products != null) {
-            this.products.remove(product);
-        }
     }
 
     // Getters y Setters
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String orderId) { this.orderId = orderId; }
+    public UUID getId() {
+        return id;
+    }
 
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public Date getDeliveryDate() { return deliveryDate; }
-    public void setDeliveryDate(Date deliveryDate) { this.deliveryDate = deliveryDate; }
+    public String getEventType() {
+        return eventType;
+    }
 
-    public List<Product> getProducts() { return products; }
-    public void setProducts(List<Product> products) { this.products = products; }
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
+    public LocalDate getDeliveryDate() {
+        return deliveryDate;
+    }
+
+    public void setDeliveryDate(LocalDate deliveryDate) {
+        this.deliveryDate = deliveryDate;
+    }
 }
