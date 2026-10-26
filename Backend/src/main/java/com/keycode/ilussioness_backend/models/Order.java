@@ -1,37 +1,54 @@
 package com.keycode.ilussioness_backend.models;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
-import java.util.UUID;
+import java.util.Date;
+import java.util.List;
 
 @Entity
-@Table(name = "orders") // por si "order" es una palabra reservada en SQL
+@Table(name = "orders")
 public class Order {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    private String orderId;
 
-    @Column(name = "event_type")
     private String eventType;
 
-    @Column(name = "delivery_date")
-    private LocalDate deliveryDate;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date deliveryDate;
+
+    @ManyToMany
+    private List<Product> products;
 
     public Order() {}
 
-    public Order(String eventType, LocalDate deliveryDate) {
+    public Order(
+        String orderId,
+        String eventType,
+        Date deliveryDate,
+        List<Product> products
+    ) {
+        this.orderId = orderId;
         this.eventType = eventType;
         this.deliveryDate = deliveryDate;
+        this.products = products;
     }
 
-    // Getters y Setters
-    public UUID getId() {
-        return id;
+    public void processPayment() {
+        // Registrar pago
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void removeProduct(Product product) {
+        if (this.products != null) {
+            this.products.remove(product);
+        }
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
     }
 
     public String getEventType() {
@@ -42,11 +59,19 @@ public class Order {
         this.eventType = eventType;
     }
 
-    public LocalDate getDeliveryDate() {
+    public Date getDeliveryDate() {
         return deliveryDate;
     }
 
-    public void setDeliveryDate(LocalDate deliveryDate) {
+    public void setDeliveryDate(Date deliveryDate) {
         this.deliveryDate = deliveryDate;
+    }
+
+    public List<Product> getProducts() {
+        return products;
+    }
+
+    public void setProducts(List<Product> products) {
+        this.products = products;
     }
 }
