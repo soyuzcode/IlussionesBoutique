@@ -52,4 +52,12 @@ public class CustomerController {
             })
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
+
+    // --- NUEVO MÉTODO PARA BUSCAR POR ID ---
+    @GetMapping("/{id}")
+    public ResponseEntity<Customer> getCustomerById(@PathVariable UUID id) {
+        return customerRepository.findById(id)
+            .map(customer -> ResponseEntity.ok(customer))
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 }
