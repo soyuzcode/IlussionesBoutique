@@ -71,4 +71,8 @@ public class AppointmentService {
                     auditException.getClass().getSimpleName());
         }
     }
+
+    public List<Appointment> getAppointmentsByCustomer(UUID customerId) {
+        return appointmentRepository.findByCustomerId(customerId);
+    }
 }
