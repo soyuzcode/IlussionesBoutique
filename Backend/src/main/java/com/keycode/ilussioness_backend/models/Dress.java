@@ -1,6 +1,11 @@
+
 package com.keycode.ilussioness_backend.models;
 
+import java.math.BigDecimal;
+import java.util.UUID;
+
 public class Dress extends Product {
+
     private String measurements;
     private String color;
     private String cutType;
@@ -10,9 +15,19 @@ public class Dress extends Product {
         super();
     }
 
-    public Dress(String productId, double price, String photo, String materials, String status,
-                 String measurements, String color, String cutType, boolean requiresChanges) {
+    public Dress(
+            UUID productId,
+            BigDecimal price,
+            String photo,
+            String materials,
+            String status,
+            String measurements,
+            String color,
+            String cutType,
+            boolean requiresChanges) {
+
         super(productId, price, photo, materials, status);
+
         this.measurements = measurements;
         this.color = color;
         this.cutType = cutType;
@@ -20,23 +35,42 @@ public class Dress extends Product {
     }
 
     public void registerSize() {
-        // registrar talla
+        // Registrar talla.
     }
 
     public void requestModification() {
-        // solicitar modificación
+        // Solicitar modificación.
     }
 
-    // Getters y Setters
-    public String getMeasurements() { return measurements; }
-    public void setMeasurements(String measurements) { this.measurements = measurements; }
+    public String getMeasurements() {
+        return measurements;
+    }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
+    public void setMeasurements(String measurements) {
+        this.measurements = measurements;
+    }
 
-    public String getCutType() { return cutType; }
-    public void setCutType(String cutType) { this.cutType = cutType; }
+    public String getColor() {
+        return color;
+    }
 
-    public boolean isRequiresChanges() { return requiresChanges; }
-    public void setRequiresChanges(boolean requiresChanges) { this.requiresChanges = requiresChanges; }
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public String getCutType() {
+        return cutType;
+    }
+
+    public void setCutType(String cutType) {
+        this.cutType = cutType;
+    }
+
+    public boolean isRequiresChanges() {
+        return requiresChanges;
+    }
+
+    public void setRequiresChanges(boolean requiresChanges) {
+        this.requiresChanges = requiresChanges;
+    }
 }

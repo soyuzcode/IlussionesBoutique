@@ -1,6 +1,11 @@
+
 package com.keycode.ilussioness_backend.models;
 
+import java.math.BigDecimal;
+import java.util.UUID;
+
 public class Plush extends Product {
+
     private String size;
     private String model;
 
@@ -8,9 +13,17 @@ public class Plush extends Product {
         super();
     }
 
-    public Plush(String productId, double price, String photo, String materials, String status,
-                 String size, String model) {
+    public Plush(
+            UUID productId,
+            BigDecimal price,
+            String photo,
+            String materials,
+            String status,
+            String size,
+            String model) {
+
         super(productId, price, photo, materials, status);
+
         this.size = size;
         this.model = model;
     }
@@ -20,13 +33,22 @@ public class Plush extends Product {
     }
 
     public void selectDesign() {
-        // seleccionar diseño
+        // Seleccionar diseño.
     }
 
-    // Getters y Setters
-    public String getSize() { return size; }
-    public void setSize(String size) { this.size = size; }
+    public String getSize() {
+        return size;
+    }
 
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public void setSize(String size) {
+        this.size = size;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
 }
