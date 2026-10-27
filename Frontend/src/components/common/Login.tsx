@@ -1,15 +1,39 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { FC, FormEvent } from 'react';
+
+import { auditEvent } from '../../lib/audit';
 
 interface LoginProps {
   onLoginSuccess?: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Only the chosen auth method is recorded. Credentials must never reach
+    // the audit client or the console.
+    auditEvent({
+      eventType: 'UI_LOGIN_SUBMITTED',
+      entityType: 'AUTH',
+      metadata: { AUTH_METHOD: 'PASSWORD' },
+    });
+
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    auditEvent({
+      eventType: 'UI_LOGIN_SUBMITTED',
+      entityType: 'AUTH',
+      metadata: { AUTH_METHOD: 'GOOGLE' },
+    });
+
     if (onLoginSuccess) {
       onLoginSuccess();
     }
@@ -67,7 +91,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <p className="text-xs text-gray-400 font-medium">or continue with</p>
           <button
             type="button"
-            onClick={onLoginSuccess}
+            onClick={handleGoogleLogin}
             className="w-full py-3 border border-gray-200 rounded-xl font-semibold text-xs sm:text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">

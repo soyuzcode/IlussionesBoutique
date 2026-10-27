@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import Login from './components/common/Login';
 import ProductTable from './components/tables/ProductTable';
 import CitaCard from './components/common/CitaCard';
 import NuevoClienteModal from './components/common/NewClientModel';
+import { auditEvent, sanitiseErrorName } from './lib/audit';
+import { ApiError, apiRequest } from './lib/api';
 
 import type { Cita } from './components/common/CitaCard';
 
-const API_URL =
-  'http://ilussionesboutique-production.up.railway.app/api';
+const SECTION_BY_TAB: Record<
+  string,
+  'INICIO' | 'CLIENTES' | 'PEDIDOS' | 'INVENTARIO'
+> = {
+  Inicio: 'INICIO',
+  Clientes: 'CLIENTES',
+  Pedidos: 'PEDIDOS',
+  Inventario: 'INVENTARIO',
+};
 
 // ============================================================
 // TIPOS DEL BACKEND
@@ -58,33 +67,6 @@ const mockPedidos = [
     item: 'Vestido XV Años Rosa',
     status: 'Listo',
     deliveryDate: 'Mañana',
-  },
-];
-
-const mockToday: Cita[] = [
-  {
-    id: 101,
-    time: '09:00',
-    period: 'AM',
-    client: 'Carla Mendoza',
-    type: 'Prueba de Vestido',
-    status: 'active',
-  },
-  {
-    id: 102,
-    time: '11:30',
-    period: 'AM',
-    client: 'Andrea Gómez',
-    type: 'Toma de Medidas',
-    status: 'active',
-  },
-  {
-    id: 103,
-    time: '14:00',
-    period: 'PM',
-    client: 'Sofía Alvarado',
-    type: 'Primera toma de medidas',
-    status: 'active',
   },
 ];
 
@@ -158,6 +140,103 @@ export function App() {
     useState<string>('');
 
   // ==========================================================
+  // ERRORES NO CONTROLADOS
+  // ==========================================================
+
+  useEffect(() => {
+    const handleWindowError = (event: ErrorEvent) => {
+      auditEvent({
+        eventType: 'UI_UNEXPECTED_ERROR',
+        entityType: 'APPLICATION',
+        metadata: {
+          ERROR_NAME: sanitiseErrorName(event.error),
+        },
+      });
+    };
+
+    const handleUnhandledRejection = (
+      event: PromiseRejectionEvent
+    ) => {
+      auditEvent({
+        eventType: 'UI_UNEXPECTED_ERROR',
+        entityType: 'APPLICATION',
+        metadata: {
+          ERROR_NAME: sanitiseErrorName(event.reason),
+        },
+      });
+    };
+
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener(
+      'unhandledrejection',
+      handleUnhandledRejection
+    );
+
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener(
+        'unhandledrejection',
+        handleUnhandledRejection
+      );
+    };
+  }, []);
+
+  // ==========================================================
+  // AUTENTICACIÓN DE INTERFAZ / NAVEGACIÓN
+  // ==========================================================
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+
+    auditEvent({
+      eventType: 'UI_SESSION_STARTED',
+      entityType: 'AUTH',
+    });
+
+    auditEvent({
+      eventType: 'UI_SECTION_VIEWED',
+      entityType: 'APPLICATION',
+      metadata: { SECTION: 'INICIO' },
+    });
+  };
+
+  const handleLogout = () => {
+    auditEvent({
+      eventType: 'UI_LOGOUT_CLICKED',
+      entityType: 'AUTH',
+    });
+    setIsAuthenticated(false);
+  };
+
+  const handleTabChange = (tab: string) => {
+    if (tab === activeTab) {
+      return;
+    }
+
+    setActiveTab(tab);
+
+    const section = SECTION_BY_TAB[tab];
+    if (!section) {
+      return;
+    }
+
+    if (tab === 'Inventario') {
+      auditEvent({
+        eventType: 'UI_PRODUCT_CATALOG_VIEWED',
+        entityType: 'PRODUCT',
+        metadata: { SECTION: section },
+      });
+      return;
+    }
+
+    auditEvent({
+      eventType: 'UI_SECTION_VIEWED',
+      entityType: 'APPLICATION',
+      metadata: { SECTION: section },
+    });
+  };
+
+  // ==========================================================
   // CARGAR CITAS DESDE SPRING
   // ==========================================================
 
@@ -166,41 +245,24 @@ export function App() {
       setCargandoCitas(true);
 
       try {
-        console.log(
-          '📡 Cargando citas desde:',
-          `${API_URL}/appointment`
-        );
-
-        const response = await fetch(
-          `${API_URL}/appointment`
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Error HTTP: ${response.status}`
+        const appointments =
+          await apiRequest<BackendAppointment[]>(
+            '/appointment',
+            {},
+            {
+              entityType: 'APPOINTMENT',
+              operation: 'LOAD_APPOINTMENTS',
+            }
           );
-        }
 
-        const appointments: BackendAppointment[] =
-          await response.json();
-
-        console.log(
-          '✅ Citas recibidas:',
-          appointments
-        );
-
-        const citas = appointments.map(
+        const citas = (appointments ?? []).map(
           mapAppointmentToCita
         );
 
         setCitasHoy(citas);
         setCitasSemanales(citas);
-      } catch (error) {
-        console.error(
-          '❌ Error cargando citas:',
-          error
-        );
-
+      } catch {
+        // The API wrapper already recorded a UI_API_REQUEST_FAILED event.
         setCitasHoy([]);
         setCitasSemanales([]);
       } finally {
@@ -227,6 +289,12 @@ export function App() {
 
     if (citaEncontrada) {
       setCitaSeleccionada(citaEncontrada);
+
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_DETAIL_VIEWED',
+        entityType: 'APPOINTMENT',
+        entityId: String(id),
+      });
     }
   };
 
@@ -242,46 +310,27 @@ export function App() {
       period: string;
     }
   ) => {
-    try {
-      console.log(
-        '📝 Datos recibidos del modal:',
-        nuevaCitaData
-      );
+    let appointmentCreated = false;
 
+    try {
       // ------------------------------------------------------
       // 1. OBTENER CLIENTES
       // ------------------------------------------------------
 
-      console.log(
-        '📡 Buscando clientes...'
-      );
-
-      const customersResponse = await fetch(
-        `${API_URL}/customer`
-      );
-
-      if (!customersResponse.ok) {
-        const errorText =
-          await customersResponse.text();
-
-        throw new Error(
-          `No se pudieron obtener los clientes. HTTP ${customersResponse.status}: ${errorText}`
-        );
-      }
-
-      const customers: BackendCustomer[] =
-        await customersResponse.json();
-
-      console.log(
-        '👥 Clientes encontrados:',
-        customers
+      const customers = await apiRequest<BackendCustomer[]>(
+        '/customer',
+        {},
+        {
+          entityType: 'CUSTOMER',
+          operation: 'LOAD_CUSTOMERS',
+        }
       );
 
       // ------------------------------------------------------
       // 2. BUSCAR CLIENTE EXISTENTE
       // ------------------------------------------------------
 
-      let customer = customers.find(
+      let customer = (customers ?? []).find(
         (c) =>
           c.name.trim().toLowerCase() ===
           nuevaCitaData.client.trim().toLowerCase()
@@ -292,48 +341,19 @@ export function App() {
       // ------------------------------------------------------
 
       if (!customer) {
-        console.log(
-          '👤 Cliente no encontrado. Creando:',
-          nuevaCitaData.client
-        );
-
-        const customerResponse = await fetch(
-          `${API_URL}/customer`,
+        customer = await apiRequest<BackendCustomer>(
+          '/customer',
           {
             method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
-
             body: JSON.stringify({
               name: nuevaCitaData.client.trim(),
               phone: '',
             }),
+          },
+          {
+            entityType: 'CUSTOMER',
+            operation: 'CREATE_CUSTOMER',
           }
-        );
-
-        if (!customerResponse.ok) {
-          const errorText =
-            await customerResponse.text();
-
-          throw new Error(
-            `No se pudo crear el cliente. HTTP ${customerResponse.status}: ${errorText}`
-          );
-        }
-
-        customer =
-          await customerResponse.json();
-
-        console.log(
-          '✅ Cliente creado:',
-          customer
-        );
-      } else {
-        console.log(
-          '✅ Cliente existente:',
-          customer
         );
       }
 
@@ -375,11 +395,6 @@ export function App() {
       const appointmentTime =
         `${String(hour).padStart(2, '0')}:${minute}:00`;
 
-      console.log(
-        '⏰ Hora convertida:',
-        appointmentTime
-      );
-
       // ------------------------------------------------------
       // 5. FECHA ACTUAL
       // ------------------------------------------------------
@@ -388,11 +403,6 @@ export function App() {
         new Date()
           .toISOString()
           .split('T')[0];
-
-      console.log(
-        '📅 Fecha de la cita:',
-        appointmentDate
-      );
 
       // ------------------------------------------------------
       // 6. CREAR APPOINTMENT
@@ -410,80 +420,35 @@ export function App() {
         status: 'SCHEDULED',
       };
 
-      console.log(
-        '📤 Enviando appointment:',
-        appointmentBody
+      await apiRequest<BackendAppointment>(
+        '/appointment',
+        {
+          method: 'POST',
+          body: JSON.stringify(appointmentBody),
+        },
+        {
+          entityType: 'APPOINTMENT',
+          operation: 'CREATE_APPOINTMENT',
+        }
       );
 
-      const appointmentResponse =
-        await fetch(
-          `${API_URL}/appointment`,
+      appointmentCreated = true;
+
+      // ------------------------------------------------------
+      // 7. RECARGAR CITAS
+      // ------------------------------------------------------
+
+      const appointments =
+        await apiRequest<BackendAppointment[]>(
+          '/appointment',
+          {},
           {
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
-
-            body: JSON.stringify(
-              appointmentBody
-            ),
+            entityType: 'APPOINTMENT',
+            operation: 'RELOAD_APPOINTMENTS',
           }
         );
 
-      // ------------------------------------------------------
-      // 7. MOSTRAR ERROR REAL DEL BACKEND
-      // ------------------------------------------------------
-
-      if (!appointmentResponse.ok) {
-        const errorText =
-          await appointmentResponse.text();
-
-        console.error(
-          '❌ Backend respondió:',
-          errorText
-        );
-
-        throw new Error(
-          `No se pudo crear la cita. HTTP ${appointmentResponse.status}: ${errorText}`
-        );
-      }
-
-      const createdAppointment =
-        await appointmentResponse.json();
-
-      console.log(
-        '🎉 Cita creada correctamente:',
-        createdAppointment
-      );
-
-      // ------------------------------------------------------
-      // 8. RECARGAR CITAS
-      // ------------------------------------------------------
-
-      console.log(
-        '🔄 Recargando citas...'
-      );
-
-      const appointmentsResponse =
-        await fetch(
-          `${API_URL}/appointment`
-        );
-
-      if (!appointmentsResponse.ok) {
-        const errorText =
-          await appointmentsResponse.text();
-
-        throw new Error(
-          `La cita se creó, pero no se pudieron recargar las citas. HTTP ${appointmentsResponse.status}: ${errorText}`
-        );
-      }
-
-      const appointments: BackendAppointment[] =
-        await appointmentsResponse.json();
-
-      const citas = appointments.map(
+      const citas = (appointments ?? []).map(
         mapAppointmentToCita
       );
 
@@ -491,28 +456,30 @@ export function App() {
       setCitasSemanales(citas);
 
       // ------------------------------------------------------
-      // 9. CERRAR MODAL
+      // 8. CERRAR MODAL
       // ------------------------------------------------------
 
       setIsNuevoClienteOpen(false);
-
-      console.log(
-        '✅ Flujo completo terminado correctamente'
-      );
-
     } catch (error) {
-      console.error(
-        '❌ ERROR CREANDO CITA:',
-        error
-      );
+      // Transport/HTTP failures are already audited by apiRequest. Only log a
+      // workflow-level failure for non-API errors (for example a missing id).
+      if (!(error instanceof ApiError)) {
+        auditEvent({
+          eventType: 'UI_APPOINTMENT_CREATE_FAILED',
+          entityType: 'APPOINTMENT',
+          metadata: { REASON: 'INVALID_DATA' },
+        });
+      }
 
-      if (error instanceof Error) {
+      if (appointmentCreated) {
         alert(
-          `No se pudo guardar la cita.\n\n${error.message}`
+          'La cita se creó, pero no se pudo actualizar la lista. Recarga la página.'
         );
       } else {
         alert(
-          'No se pudo guardar la cita. Revisa la consola.'
+          error instanceof ApiError
+            ? 'No se pudo guardar la cita. Intenta de nuevo.'
+            : 'No se pudo guardar la cita.'
         );
       }
     }
@@ -526,11 +493,7 @@ export function App() {
     <div className="min-h-screen w-full bg-white font-sans text-gray-800 flex flex-col">
 
       {!isAuthenticated ? (
-        <Login
-          onLoginSuccess={() =>
-            setIsAuthenticated(true)
-          }
-        />
+        <Login onLoginSuccess={handleLoginSuccess} />
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
 
@@ -555,9 +518,7 @@ export function App() {
               </div>
 
               <button
-                onClick={() =>
-                  setIsAuthenticated(false)
-                }
+                onClick={handleLogout}
                 className="text-xs bg-pink-700 hover:bg-pink-800 text-white px-3 py-1.5 rounded-lg transition cursor-pointer font-medium"
               >
                 Salir
@@ -606,7 +567,7 @@ export function App() {
 
                   <button
                     onClick={() =>
-                      setActiveTab('Pedidos')
+                      handleTabChange('Pedidos')
                     }
                     className="text-xs font-bold text-red-700 hover:underline cursor-pointer ml-2 whitespace-nowrap"
                   >
@@ -636,7 +597,7 @@ export function App() {
 
                   <button
                     onClick={() =>
-                      setActiveTab('Inventario')
+                      handleTabChange('Inventario')
                     }
                     className="bg-gray-50 hover:bg-pink-50 p-5 rounded-2xl border border-gray-100 flex items-center justify-center gap-3 transition active:scale-98 cursor-pointer shadow-xs"
                   >
@@ -1023,7 +984,7 @@ export function App() {
                 <button
                   key={item.id}
                   onClick={() =>
-                    setActiveTab(item.id)
+                    handleTabChange(item.id)
                   }
                   className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer text-[10px] sm:text-xs font-semibold transition ${
                     isActive

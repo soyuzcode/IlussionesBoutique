@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
