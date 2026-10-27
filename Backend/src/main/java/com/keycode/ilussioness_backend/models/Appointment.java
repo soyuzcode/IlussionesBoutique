@@ -31,6 +31,10 @@ public class Appointment {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    // --- NUEVO: Campo para el motivo de la cita ---
+    @Column(name = "reason")
+    private String reason;
+
     @Column(name = "appointment_date", nullable = false)
     private LocalDate appointmentDate;
 
@@ -55,11 +59,13 @@ public class Appointment {
 
     public Appointment(
             Customer customer,
+            String reason, // <-- Agregado al constructor
             LocalDate appointmentDate,
             LocalTime appointmentTime,
             AppointmentStatus status
     ) {
         this.customer = customer;
+        this.reason = reason;
         this.appointmentDate = appointmentDate;
         this.appointmentTime = appointmentTime;
         this.status = status;
@@ -79,6 +85,15 @@ public class Appointment {
 
     public void setCustomer(Customer customer) {
         this.customer = customer;
+    }
+
+    // --- NUEVO: Getter y Setter para reason ---
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 
     public LocalDate getAppointmentDate() {

@@ -1,6 +1,11 @@
+
 package com.keycode.ilussioness_backend.models;
 
+import java.math.BigDecimal;
+import java.util.UUID;
+
 public class Cup extends Product {
+
     private int quantity;
     private double capacity;
     private String design;
@@ -9,9 +14,18 @@ public class Cup extends Product {
         super();
     }
 
-    public Cup(String productId, double price, String photo, String materials, String status,
-               int quantity, double capacity, String design) {
+    public Cup(
+            UUID productId,
+            BigDecimal price,
+            String photo,
+            String materials,
+            String status,
+            int quantity,
+            double capacity,
+            String design) {
+
         super(productId, price, photo, materials, status);
+
         this.quantity = quantity;
         this.capacity = capacity;
         this.design = design;
@@ -22,16 +36,30 @@ public class Cup extends Product {
     }
 
     public void selectDesign() {
-        // seleccionar diseño
+        // Seleccionar diseño.
     }
 
-    // Getters y Setters
-    public int getQuantity() { return quantity; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
+    public int getQuantity() {
+        return quantity;
+    }
 
-    public double getCapacity() { return capacity; }
-    public void setCapacity(double capacity) { this.capacity = capacity; }
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
 
-    public String getDesign() { return design; }
-    public void setDesign(String design) { this.design = design; }
+    public double getCapacity() {
+        return capacity;
+    }
+
+    public void setCapacity(double capacity) {
+        this.capacity = capacity;
+    }
+
+    public String getDesign() {
+        return design;
+    }
+
+    public void setDesign(String design) {
+        this.design = design;
+    }
 }
