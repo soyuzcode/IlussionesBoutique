@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { FC, FormEvent } from 'react';
+
+import { auditEvent } from '../../lib/audit';
 import logo from '../../assets/logo.jpg';
 import type { AuthUser } from '../../types';
 
@@ -6,14 +9,11 @@ interface LoginProps {
   onLoginSuccess?: (user: AuthUser) => void;
 }
 
-// Usuarios de prueba mientras no exista login real (agrega aquí los nombres reales del equipo)
 const MOCK_USERS = [{ email: 'admin@ilussiones.com', password: '123456', name: 'Admin' }];
-
-// Correo válido: caracteres permitidos, dominio y extensión de al menos 2 letras (ej. nombre@gmail.com)
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 const ERROR_MESSAGE = 'User or password wrong';
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,17 +23,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [resetError, setResetError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    auditEvent({
+      eventType: 'UI_LOGIN_SUBMITTED',
+      entityType: 'AUTH',
+      metadata: { AUTH_METHOD: 'PASSWORD' },
+    });
+
     const cleanEmail = email.trim().toLowerCase();
 
-    // Campos vacíos o correo con sintaxis inválida
     if (!cleanEmail || !password.trim() || !EMAIL_REGEX.test(cleanEmail)) {
       setError(ERROR_MESSAGE);
       return;
     }
 
-    // Credenciales incorrectas
     const user = MOCK_USERS.find((u) => u.email === cleanEmail && u.password === password);
     if (!user) {
       setError(ERROR_MESSAGE);
@@ -44,12 +49,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     onLoginSuccess?.({ name: user.name, email: user.email });
   };
 
-  const handleGoogle = () => {
+  const handleGoogleLogin = () => {
+    auditEvent({
+      eventType: 'UI_LOGIN_SUBMITTED',
+      entityType: 'AUTH',
+      metadata: { AUTH_METHOD: 'GOOGLE' },
+    });
+
     // Simulado: el login real con Google requiere autenticación en el backend (p. ej. Supabase Auth)
     onLoginSuccess?.({ name: 'Google User', email: '' });
   };
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!EMAIL_REGEX.test(resetEmail.trim())) {
       setResetError('Enter a valid email address.');
@@ -70,7 +81,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen w-full bg-white flex flex-col justify-center items-center p-6 sm:p-10">
       <div className="w-full max-w-md mx-auto space-y-6">
-        {/* Logo / Header */}
         <div className="flex flex-col items-center text-center space-y-3">
           <img
             src={logo}
@@ -83,7 +93,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4 pt-2">
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">Email</label>
@@ -134,7 +143,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <p className="text-xs text-gray-400 font-medium">or continue with</p>
           <button
             type="button"
-            onClick={handleGoogle}
+            onClick={handleGoogleLogin}
             className="w-full py-3 border border-gray-200 rounded-xl font-semibold text-xs sm:text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -168,7 +177,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* Forgot password modal */}
       {showForgot && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <form onSubmit={handleReset} noValidate className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">

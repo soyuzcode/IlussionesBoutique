@@ -1,4 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import type { FC, FormEvent } from 'react';
+
+import { auditEvent } from '../../lib/audit';
 import type { Customer, NewAppointmentData } from '../../types';
 import { APPOINTMENT_REASONS } from '../../utils/constants';
 import { TIME_SLOTS, isPastSlot, slotKey, todayISO, type TimeSlot } from '../../utils/dates';
@@ -11,11 +14,12 @@ interface NewClientModalProps {
   onAddAppointment: (data: NewAppointmentData) => Promise<void>;
 }
 
-const inputClass =
-  'w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none';
 const DEFAULT_SLOT = TIME_SLOTS.find((s) => slotKey(s) === '10:00 AM') ?? TIME_SLOTS[0];
 
-export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }: NewClientModalProps) {
+const inputClass =
+  'w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none';
+
+export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, customers, onAddAppointment }) => {
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -25,7 +29,27 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_FORM_OPENED',
+        entityType: 'APPOINTMENT',
+      });
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setError('');
+    setCustomerId('');
+    setCustomerName('');
+    setPhone('');
+    setDate(todayISO());
+    setSlot(DEFAULT_SLOT);
+    setSaving(false);
+    onClose();
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,32 +58,67 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
     if (!customerId) {
       if (!customerName.trim()) {
         setError('Escribe el nombre de la clienta o elige una existente.');
+        auditEvent({
+          eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+          entityType: 'APPOINTMENT',
+          metadata: { FIELD: 'CLIENT', REASON: 'REQUIRED' },
+        });
         return;
       }
       if (customers.some((c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase())) {
         setError('Ya existe una clienta con ese nombre. Selecciónala en la lista.');
+        auditEvent({
+          eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+          entityType: 'APPOINTMENT',
+          metadata: { FIELD: 'CLIENT', REASON: 'DUPLICATE' },
+        });
         return;
       }
       if (phone && !/^[0-9+\-\s]{8,15}$/.test(phone)) {
         setError('El teléfono no es válido.');
+        auditEvent({
+          eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+          entityType: 'APPOINTMENT',
+          metadata: { FIELD: 'CLIENT', REASON: 'INVALID_DATA' },
+        });
         return;
       }
     }
     if (!date) {
       setError('Elige la fecha de la cita.');
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+        entityType: 'APPOINTMENT',
+        metadata: { FIELD: 'TIME', REASON: 'REQUIRED' },
+      });
       return;
     }
     if (date < todayISO()) {
       setError('La fecha no puede ser anterior a hoy.');
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+        entityType: 'APPOINTMENT',
+        metadata: { FIELD: 'TIME', REASON: 'INVALID_DATA' },
+      });
       return;
     }
     if (isPastSlot(slot, date)) {
       setError('Elige una hora que aún no haya pasado.');
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
+        entityType: 'APPOINTMENT',
+        metadata: { FIELD: 'TIME', REASON: 'INVALID_DATA' },
+      });
       return;
     }
 
     setSaving(true);
     try {
+      auditEvent({
+        eventType: 'UI_APPOINTMENT_FORM_SUBMITTED',
+        entityType: 'APPOINTMENT',
+      });
+
       await onAddAppointment({
         customerId: customerId || undefined,
         customerName,
@@ -69,6 +128,7 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
         time: slot.time,
         period: slot.period,
       });
+      
       setCustomerId('');
       setCustomerName('');
       setPhone('');
@@ -87,7 +147,7 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
       <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
           <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Agendar Nueva Cita</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer">
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer">
             ✕
           </button>
         </div>
@@ -172,7 +232,7 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-1/2 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold cursor-pointer transition"
             >
               Cancelar
@@ -189,6 +249,7 @@ export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }:
       </div>
     </div>
   );
-}
+};
 
+export { NewClientModal as NuevoClienteModal };
 export default NewClientModal;
