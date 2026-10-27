@@ -5,10 +5,10 @@ import com.keycode.ilussioness_backend.quotes.domain.PreliminaryQuote;
 import com.keycode.ilussioness_backend.quotes.domain.QuoteLineItem;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDRectangle;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.font.BaseEncoding;
-import org.apache.pdfbox.pdmodel.font.PDFFont;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
@@ -24,264 +24,338 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Renders Spanish-language PDF quotes with Apache PDFBox.
+ * Renders Spanish-language PDF quotes with Apache PDFBox 3.x.
  *
- * <p>The document uses the standard Helvetica base fonts with the WinAnsi
- * encoding so Spanish accented characters (á, é, í, ó, ú, ñ) are rendered
- * correctly without embedding additional font files.</p>
+ * <p>The document uses the standard Helvetica Type-1 base fonts which support
+ * WinAnsi encoding, so Spanish accented characters (á, é, í, ó, ú, ñ) are
+ * rendered correctly without embedding additional font files.</p>
+ *
+ * <p>Coordinate system: PDFBox uses a bottom-left origin. All {@code top}
+ * arguments passed to helper methods are expressed as distance from the top of
+ * the page, and are converted to PDFBox coordinates by {@code PAGE_HEIGHT - top}
+ * inside each helper.</p>
  */
 @Component
 public class QuotePdfRenderer {
 
-    private static final float PAGE_HEIGHT = 842f;
+    private static final float PAGE_HEIGHT = PDRectangle.A4.getHeight(); // 841.89
     private static final float MARGIN = 50f;
-    private static final float CONTENT_RIGHT = 545f;
-    private static final float FONT_SIZE_BOUTIQUE = 18f;
-    private static final float FONT_SIZE_TITLE = 26f;
-    private static final float FONT_SIZE_SECTION = 12f;
-    private static final float FONT_SIZE_BODY = 11f;
-    private static final float FONT_SIZE_BOLD = 12f;
-    private static final float FONT_SIZE_TOTAL = 16f;
-    private static final float RULE_WIDTH = 1f;
-    private static final int COLOR_TEXT = 0xFF000000;
-    private static final int COLOR_RULE = 0xFF666666;
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT);
+    private static final float CONTENT_RIGHT = PDRectangle.A4.getWidth() - MARGIN; // ~545
+    private static final float FONT_SIZE_BOUTIQUE = 13f;
+    private static final float FONT_SIZE_TITLE = 22f;
+    private static final float FONT_SIZE_SECTION = 11f;
+    private static final float FONT_SIZE_BODY = 10f;
+    private static final float FONT_SIZE_TOTAL = 13f;
+    private static final float RULE_WIDTH = 0.5f;
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT);
+
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
 
     public byte[] renderPreliminaryQuote(PreliminaryQuote quote) {
         try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage(PDRectangle.A4, true, true);
+            PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
-            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
-                PDFFont regularFont = PDFFont.loadFont(document, Standard14Fonts.FontName.HELVETICA, BaseEncoding.WinAnsi);
-                PDFFont boldFont = PDFFont.loadFont(document, Standard14Fonts.FontName.HELVETICA_BOLD, BaseEncoding.WinAnsi);
-                drawPreliminaryQuote(content, boldFont, regularFont, quote);
+            PDFont regular = new PDType1Font(document, Standard14Fonts.FontName.HELVETICA);
+            PDFont bold    = new PDType1Font(document, Standard14Fonts.FontName.HELVETICA_BOLD);
+            try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
+                drawPreliminaryQuote(cs, bold, regular, quote);
             }
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            document.save(outputStream);
-            return outputStream.toByteArray();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
         } catch (IOException ex) {
-            throw new IllegalStateException("Could not generate the quote PDF", ex);
+            throw new IllegalStateException("Could not generate the preliminary quote PDF", ex);
         }
     }
 
     public byte[] renderOrderQuote(OrderQuote orderQuote) {
         try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage(PDRectangle.A4, true, true);
+            PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
-            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
-                PDFFont regularFont = PDFFont.loadFont(document, Standard14Fonts.FontName.HELVETICA, BaseEncoding.WinAnsi);
-                PDFFont boldFont = PDFFont.loadFont(document, Standard14Fonts.FontName.HELVETICA_BOLD, BaseEncoding.WinAnsi);
-                drawOrderQuote(content, boldFont, regularFont, orderQuote);
+            PDFont regular = new PDType1Font(document, Standard14Fonts.FontName.HELVETICA);
+            PDFont bold    = new PDType1Font(document, Standard14Fonts.FontName.HELVETICA_BOLD);
+            try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
+                drawOrderQuote(cs, bold, regular, orderQuote);
             }
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            document.save(outputStream);
-            return outputStream.toByteArray();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
         } catch (IOException ex) {
-            throw new IllegalStateException("Could not generate the quote PDF", ex);
+            throw new IllegalStateException("Could not generate the order quote PDF", ex);
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Preliminary quote rendering
+    // -------------------------------------------------------------------------
 
     private void drawPreliminaryQuote(
-            PDPageContentStream content,
-            PDFFont boldFont,
-            PDFFont regularFont,
+            PDPageContentStream cs,
+            PDFont bold,
+            PDFont regular,
             PreliminaryQuote quote
     ) throws IOException {
-        text(content, boldFont, FONT_SIZE_TITLE, "COTIZACIÓN", MARGIN, 848);
-        text(content, regularFont, FONT_SIZE_BOUTIQUE, "Ilusiones Boutique", MARGIN, 810);
-        line(content, MARGIN, 826, CONTENT_RIGHT, 826);
 
-        text(content, regularFont, FONT_SIZE_BODY, "Referencia: " + safeText(quote.reference(), "COT-00000000"), MARGIN, 800);
-        text(content, regularFont, FONT_SIZE_BODY, "Fecha: " + formatDateTime(quote.issueDate()), MARGIN, 778);
+        float y = PAGE_HEIGHT - MARGIN; // start near top
 
-        drawSection(content, boldFont, "DATOS DEL CLIENTE", 726);
+        // Header
+        text(cs, bold,    FONT_SIZE_TITLE,    "COTIZACION", MARGIN, y); y -= 22f;
+        text(cs, regular, FONT_SIZE_BOUTIQUE, "Ilusiones Boutique", MARGIN, y); y -= 18f;
+        hline(cs, MARGIN, y, CONTENT_RIGHT);                             y -= 14f;
+
+        text(cs, regular, FONT_SIZE_BODY,
+                "Referencia: " + safeText(quote.reference(), "COT-00000000"), MARGIN, y); y -= 14f;
+        text(cs, regular, FONT_SIZE_BODY,
+                "Fecha de emision: " + formatDateTime(quote.issueDate()), MARGIN, y); y -= 22f;
+
+        // Customer section
         if (quote.customerName() != null) {
-            keyValue(content, regularFont, "Cliente", quote.customerName(), MARGIN, 688);
-            keyValue(content, regularFont, "Identificador", quote.customerId(), MARGIN, 670);
+            sectionHeader(cs, bold, "DATOS DEL CLIENTE", MARGIN, y); y -= 20f;
+            kv(cs, regular, "Cliente", quote.customerName(), MARGIN, y); y -= 14f;
+            y -= 8f;
         }
 
-        drawSection(content, boldFont, "DETALLES DEL EVENTO", 596);
-        keyValue(content, regularFont, "Evento", quote.eventType(), MARGIN, 556);
-        keyValue(content, regularFont, "Fecha de entrega", formatDate(quote.deliveryDate()), MARGIN, 538);
+        // Event section
+        sectionHeader(cs, bold, "DETALLES DEL EVENTO", MARGIN, y); y -= 20f;
+        kv(cs, regular, "Evento",           safeText(quote.eventType(), "-"), MARGIN, y); y -= 14f;
+        kv(cs, regular, "Fecha de entrega", formatDate(quote.deliveryDate()),  MARGIN, y); y -= 22f;
 
-        drawSection(content, boldFont, "VESTIDO PERSONALIZADO", 484);
-        keyValue(content, regularFont, "Vestido", quote.dressDescription(), MARGIN, 446);
-        keyValue(content, boldFont, "Precio", formatAmount(quote.dressPrice()), MARGIN, 428);
+        // Dress section
+        sectionHeader(cs, bold, "VESTIDO PERSONALIZADO", MARGIN, y); y -= 20f;
+        List<String> dressLines = wrap(quote.dressDescription(), 72);
+        for (String line : dressLines) {
+            text(cs, regular, FONT_SIZE_BODY, line, MARGIN, y); y -= 13f;
+        }
+        kv(cs, bold, "Precio", formatAmount(quote.dressPrice()), MARGIN, y); y -= 22f;
 
-        drawSection(content, boldFont, "PRODUCTOS ADICIONALES", 366);
-        float cursor = 328;
-        if (quote.items() == null || quote.items().isEmpty()) {
-            text(content, regularFont, FONT_SIZE_BODY, "Sin productos adicionales.", MARGIN, cursor);
-            cursor -= 18;
+        // Additional products
+        sectionHeader(cs, bold, "PRODUCTOS ADICIONALES", MARGIN, y); y -= 20f;
+        List<QuoteLineItem> extraItems = extraItems(quote);
+        if (extraItems.isEmpty()) {
+            text(cs, regular, FONT_SIZE_BODY, "Sin productos adicionales.", MARGIN, y); y -= 14f;
         } else {
-            for (QuoteLineItem item : quote.items()) {
-                List<String> lines = wrap(safeText(item.description(), "Producto"), 46);
-                float lineTop = cursor;
-                for (String line : lines) {
-                    text(content, regularFont, FONT_SIZE_BODY, line, lineTop, MARGIN);
-                    lineTop -= 16;
+            for (QuoteLineItem item : extraItems) {
+                List<String> descLines = wrap(safeText(item.description(), "Producto"), 70);
+                for (String line : descLines) {
+                    text(cs, regular, FONT_SIZE_BODY, line, MARGIN, y); y -= 13f;
                 }
-                text(
-                        content,
-                        regularFont,
-                        FONT_SIZE_BODY,
-                        "Cantidad: " + item.quantity()
-                                + "   Precio unitario: " + formatAmount(item.unitPrice())
-                                + "   Total: " + formatAmount(item.lineTotal()),
-                        lineTop,
-                        MARGIN
-                );
-                cursor = lineTop - 12;
+                text(cs, regular, FONT_SIZE_BODY,
+                        "  Cant: " + item.quantity()
+                                + "  P.Unit: " + formatAmount(item.unitPrice())
+                                + "  Subtotal: " + formatAmount(item.lineTotal()),
+                        MARGIN, y);
+                y -= 16f;
             }
         }
 
-        text(content, boldFont, 14, "Subtotal: " + formatAmount(quote.subtotal()), MARGIN, cursor - 20);
-        text(content, boldFont, FONT_SIZE_TOTAL, "Total cotizado: " + formatAmount(quote.subtotal()), MARGIN, cursor - 46);
+        y -= 6f;
+        hline(cs, MARGIN, y, CONTENT_RIGHT); y -= 16f;
+        text(cs, bold, FONT_SIZE_TOTAL,
+                "TOTAL COTIZADO: " + formatAmount(quote.subtotal()), MARGIN, y);
 
-        text(content, regularFont, 10, "Esta cotizacion no constituye un pedido confirmado.", MARGIN, 60);
+        // Footer
+        text(cs, regular, 8f,
+                "Esta cotizacion no constituye un pedido confirmado.",
+                MARGIN, MARGIN + 10f);
     }
+
+    // -------------------------------------------------------------------------
+    // Order quote rendering
+    // -------------------------------------------------------------------------
 
     private void drawOrderQuote(
-            PDPageContentStream content,
-            PDFFont boldFont,
-            PDFFont regularFont,
+            PDPageContentStream cs,
+            PDFont bold,
+            PDFont regular,
             OrderQuote orderQuote
     ) throws IOException {
-        text(content, boldFont, FONT_SIZE_TITLE, "COTIZACIÓN", MARGIN, 848);
-        text(content, regularFont, FONT_SIZE_BOUTIQUE, "Ilusiones Boutique", MARGIN, 810);
-        line(content, MARGIN, 826, CONTENT_RIGHT, 826);
 
-        text(content, regularFont, FONT_SIZE_BODY, "Referencia: " + safeText(orderQuote.orderId(), "ORDER"), MARGIN, 800);
-        text(content, regularFont, FONT_SIZE_BODY, "Fecha: " + formatOrderDate(orderQuote.deliveryDate()), MARGIN, 778);
+        float y = PAGE_HEIGHT - MARGIN;
 
-        drawSection(content, boldFont, "DETALLES DEL EVENTO", 596);
-        keyValue(content, regularFont, "Evento", orderQuote.eventType(), MARGIN, 556);
-        keyValue(content, regularFont, "Fecha de entrega", formatOrderDate(orderQuote.deliveryDate()), MARGIN, 538);
+        // Header
+        text(cs, bold,    FONT_SIZE_TITLE,    "COTIZACION DE PEDIDO", MARGIN, y); y -= 22f;
+        text(cs, regular, FONT_SIZE_BOUTIQUE, "Ilusiones Boutique",   MARGIN, y); y -= 18f;
+        hline(cs, MARGIN, y, CONTENT_RIGHT);                                       y -= 14f;
 
-        drawSection(content, boldFont, "PRODUCTOS", 452);
-        float cursor = 420;
+        text(cs, regular, FONT_SIZE_BODY,
+                "Pedido: " + safeText(orderQuote.orderId(), "-"), MARGIN, y); y -= 14f;
+        if (orderQuote.createdAt() != null) {
+            text(cs, regular, FONT_SIZE_BODY,
+                    "Fecha: " + orderQuote.createdAt(), MARGIN, y); y -= 14f;
+        }
+        y -= 8f;
+
+        // Customer
+        if (orderQuote.customerName() != null) {
+            sectionHeader(cs, bold, "CLIENTE", MARGIN, y); y -= 20f;
+            kv(cs, regular, "Nombre", orderQuote.customerName(), MARGIN, y); y -= 14f;
+            y -= 8f;
+        }
+
+        // Event
+        sectionHeader(cs, bold, "EVENTO", MARGIN, y); y -= 20f;
+        kv(cs, regular, "Tipo",    safeText(orderQuote.eventType(), "-"),       MARGIN, y); y -= 14f;
+        kv(cs, regular, "Entrega", safeText(orderQuote.deliveryDate(), "-"),    MARGIN, y); y -= 14f;
+        kv(cs, regular, "Estado",  safeText(orderQuote.orderStatus(), "-"),     MARGIN, y); y -= 22f;
+
+        // Products
+        sectionHeader(cs, bold, "PRODUCTOS", MARGIN, y); y -= 20f;
         if (orderQuote.items() == null || orderQuote.items().isEmpty()) {
-            text(content, regularFont, FONT_SIZE_BODY, "Sin productos registrados.", MARGIN, cursor);
-            cursor -= 18;
+            text(cs, regular, FONT_SIZE_BODY, "Sin productos registrados.", MARGIN, y); y -= 14f;
         } else {
             for (QuoteLineItem item : orderQuote.items()) {
-                List<String> lines = wrap(safeText(item.description(), "Producto"), 46);
-                float lineTop = cursor;
-                for (String line : lines) {
-                    text(content, regularFont, FONT_SIZE_BODY, line, lineTop, MARGIN);
-                    lineTop -= 16;
+                List<String> descLines = wrap(safeText(item.description(), "Producto"), 70);
+                for (String line : descLines) {
+                    text(cs, regular, FONT_SIZE_BODY, line, MARGIN, y); y -= 13f;
                 }
-                text(
-                        content,
-                        regularFont,
-                        FONT_SIZE_BODY,
-                        "Cantidad: " + item.quantity()
-                                + "   Precio unitario: " + formatAmount(item.unitPrice())
-                                + "   Total: " + formatAmount(item.lineTotal),
-                        lineTop,
-                        MARGIN
-                );
-                cursor = lineTop - 12;
+                text(cs, regular, FONT_SIZE_BODY,
+                        "  Cant: " + item.quantity()
+                                + "  P.Unit: " + formatAmount(item.unitPrice())
+                                + "  Subtotal: " + formatAmount(item.lineTotal()),
+                        MARGIN, y);
+                y -= 16f;
             }
         }
 
-        text(content, boldFont, 14, "Total del pedido: " + formatAmount(orderQuote.total()), MARGIN, cursor - 20);
-        text(content, boldFont, FONT_SIZE_TOTAL, "Total cotizado: " + formatAmount(orderQuote.total()), MARGIN, cursor - 46);
+        y -= 6f;
+        hline(cs, MARGIN, y, CONTENT_RIGHT); y -= 16f;
+        text(cs, bold, FONT_SIZE_TOTAL,
+                "TOTAL DEL PEDIDO: " + formatAmount(orderQuote.total()), MARGIN, y); y -= 18f;
 
-        text(content, regularFont, 10, "Esta cotizacion no constituye un pedido confirmado.", MARGIN, 60);
+        // Payment summary
+        if (orderQuote.totalPaid() != null) {
+            text(cs, regular, FONT_SIZE_BODY,
+                    "Pagado: " + formatAmount(orderQuote.totalPaid()), MARGIN, y); y -= 14f;
+            text(cs, regular, FONT_SIZE_BODY,
+                    "Saldo pendiente: " + formatAmount(orderQuote.balance()), MARGIN, y); y -= 14f;
+            kv(cs, regular, "Estado de pago", safeText(orderQuote.paymentStatus(), "-"), MARGIN, y);
+        }
+
+        text(cs, regular, 8f,
+                "Los precios reflejan los montos acordados al momento del pedido.",
+                MARGIN, MARGIN + 10f);
     }
 
-    private void drawSection(PDPageContentStream content, PDFFont boldFont, String title, float top) throws IOException {
-        text(content, boldFont, FONT_SIZE_SECTION, title, MARGIN, top);
-        line(content, MARGIN, top - 16, CONTENT_RIGHT, top - 16);
-    }
+    // -------------------------------------------------------------------------
+    // Drawing helpers
+    // -------------------------------------------------------------------------
 
-    private void keyValue(PDPageContentStream content, PDFFont font, String key, String value, float left, float top) throws IOException {
-        text(content, font, FONT_SIZE_BODY, key + ": " + safeText(value, "-"), left, top);
-    }
-
+    /**
+     * Draws text at {@code (left, y)} where {@code y} is in PDFBox coordinates
+     * (measured from bottom-left of the page).
+     */
     private void text(
-            PDPageContentStream content,
-            PDFFont font,
+            PDPageContentStream cs,
+            PDFont font,
             float size,
             String value,
             float left,
-            float top
+            float y
     ) throws IOException {
-        content.beginText();
-        content.setFont(font, size);
-        content.setNonStrokingColor(COLOR_TEXT);
-        content.newLineAtOffset(left, PAGE_HEIGHT - top);
-        content.showText(value);
-        content.endText();
+        // Sanitize: PDFBox WinAnsi cannot encode characters outside Latin-1.
+        String safe = latinSafe(safeText(value, ""));
+        if (safe.isEmpty()) return;
+        cs.beginText();
+        cs.setFont(font, size);
+        cs.newLineAtOffset(left, y);
+        cs.showText(safe);
+        cs.endText();
     }
 
-    private void line(PDPageContentStream content, float x1, float y1, float x2, float y2) throws IOException {
-        content.setLineWidth(RULE_WIDTH);
-        content.setNonStrokingColor(COLOR_RULE);
-        content.beginPath();
-        content.moveTo(x1, PAGE_HEIGHT - y1);
-        content.lineTo(x2, PAGE_HEIGHT - y2);
-        content.stroke();
+    /** Draws a horizontal rule. {@code y} is in PDFBox coordinates. */
+    private void hline(PDPageContentStream cs, float x1, float y, float x2) throws IOException {
+        cs.setLineWidth(RULE_WIDTH);
+        cs.setStrokingColor(0.4f, 0.4f, 0.4f);
+        cs.moveTo(x1, y);
+        cs.lineTo(x2, y);
+        cs.stroke();
     }
 
-    private List<String> wrap(String value, int maxLineLength) {
+    /** Section header (bold label + underline). */
+    private void sectionHeader(PDPageContentStream cs, PDFont bold, String title,
+                                float left, float y) throws IOException {
+        text(cs, bold, FONT_SIZE_SECTION, title, left, y);
+        hline(cs, left, y - 3f, CONTENT_RIGHT);
+    }
+
+    /** Key-value pair on one line. */
+    private void kv(PDPageContentStream cs, PDFont font, String key, String value,
+                    float left, float y) throws IOException {
+        text(cs, font, FONT_SIZE_BODY, key + ": " + safeText(value, "-"), left, y);
+    }
+
+    // -------------------------------------------------------------------------
+    // Data helpers
+    // -------------------------------------------------------------------------
+
+    /** Returns only the extra (non-dress) items from a preliminary quote's item list. */
+    private List<QuoteLineItem> extraItems(PreliminaryQuote quote) {
+        if (quote.items() == null || quote.items().isEmpty()) return List.of();
+        // The first item is always the dress; additional items follow.
+        if (quote.items().size() <= 1) return List.of();
+        return quote.items().subList(1, quote.items().size());
+    }
+
+    private List<String> wrap(String value, int maxChars) {
         String text = safeText(value, "");
-        if (text.isEmpty()) {
-            return List.of();
-        }
+        if (text.isEmpty()) return List.of();
         List<String> lines = new ArrayList<>();
         for (String paragraph : text.split("\n")) {
             String trimmed = paragraph.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
+            if (trimmed.isEmpty()) continue;
             StringBuilder current = new StringBuilder();
             for (String word : trimmed.split("\\s+")) {
                 String candidate = current.isEmpty() ? word : current + " " + word;
-                if (candidate.length() > maxLineLength && !current.isEmpty()) {
+                if (candidate.length() > maxChars && !current.isEmpty()) {
                     lines.add(current.toString());
                     current = new StringBuilder(word);
                 } else {
                     current = new StringBuilder(candidate);
                 }
             }
-            lines.add(current.toString());
+            if (!current.isEmpty()) lines.add(current.toString());
         }
         return lines;
     }
 
     private String safeText(String value, String fallback) {
-        if (value == null) {
-            return fallback;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? fallback : trimmed;
+        if (value == null) return fallback;
+        String t = value.trim();
+        return t.isEmpty() ? fallback : t;
     }
 
     private String formatAmount(BigDecimal value) {
         BigDecimal safe = value == null ? BigDecimal.ZERO : value;
-        return safe.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return "$ " + safe.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String formatDate(LocalDate date) {
-        if (date == null) {
-            return "-";
-        }
-        return DATE_FORMATTER.format(date);
+        return date == null ? "-" : DATE_FORMATTER.format(date);
     }
 
     private String formatDateTime(LocalDateTime dateTime) {
-        if (dateTime == null) {
-            return "-";
-        }
-        return DATE_FORMATTER.format(dateTime);
+        return dateTime == null ? "-" : DATE_FORMATTER.format(dateTime);
     }
 
-    private String formatOrderDate(java.util.Date date) {
-        if (date == null) {
-            return "-";
+    /**
+     * Replaces characters outside the WinAnsi (ISO-8859-1 superset) range with
+     * a Latin approximation so that PDFBox never throws an encoding exception.
+     * Common Spanish characters (á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡) are all
+     * within WinAnsi and are preserved.
+     */
+    private String latinSafe(String value) {
+        if (value == null) return "";
+        StringBuilder sb = new StringBuilder(value.length());
+        for (char c : value.toCharArray()) {
+            if (c < 256) {
+                sb.append(c);
+            } else {
+                sb.append('?');
+            }
         }
-        return DATE_FORMATTER.format(new java.util.Date(date.getTime()));
+        return sb.toString();
     }
 }
