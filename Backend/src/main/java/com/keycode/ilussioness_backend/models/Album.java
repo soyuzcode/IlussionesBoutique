@@ -1,6 +1,11 @@
+
 package com.keycode.ilussioness_backend.models;
 
+import java.math.BigDecimal;
+import java.util.UUID;
+
 public class Album extends Product {
+
     private String dimensions;
     private String coverMaterial;
     private String size;
@@ -10,9 +15,19 @@ public class Album extends Product {
         super();
     }
 
-    public Album(String productId, double price, String photo, String materials, String status,
-                 String dimensions, String coverMaterial, String size, String design) {
+    public Album(
+            UUID productId,
+            BigDecimal price,
+            String photo,
+            String materials,
+            String status,
+            String dimensions,
+            String coverMaterial,
+            String size,
+            String design) {
+
         super(productId, price, photo, materials, status);
+
         this.dimensions = dimensions;
         this.coverMaterial = coverMaterial;
         this.size = size;
@@ -24,19 +39,38 @@ public class Album extends Product {
     }
 
     public void selectDesign() {
-        // seleccionar diseño
+        // Seleccionar diseño.
     }
 
-    // Getters y Setters
-    public String getDimensions() { return dimensions; }
-    public void setDimensions(String dimensions) { this.dimensions = dimensions; }
+    public String getDimensions() {
+        return dimensions;
+    }
 
-    public String getCoverMaterial() { return coverMaterial; }
-    public void setCoverMaterial(String coverMaterial) { this.coverMaterial = coverMaterial; }
+    public void setDimensions(String dimensions) {
+        this.dimensions = dimensions;
+    }
 
-    public String getSize() { return size; }
-    public void setSize(String size) { this.size = size; }
+    public String getCoverMaterial() {
+        return coverMaterial;
+    }
 
-    public String getDesign() { return design; }
-    public void setDesign(String design) { this.design = design; }
+    public void setCoverMaterial(String coverMaterial) {
+        this.coverMaterial = coverMaterial;
+    }
+
+    public String getSize() {
+        return size;
+    }
+
+    public void setSize(String size) {
+        this.size = size;
+    }
+
+    public String getDesign() {
+        return design;
+    }
+
+    public void setDesign(String design) {
+        this.design = design;
+    }
 }

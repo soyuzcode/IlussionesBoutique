@@ -17,16 +17,17 @@ public class Order {
     private Date deliveryDate;
 
     @ManyToMany
+    @JoinTable(name = "order_products", joinColumns = @JoinColumn(name = "order_id"), inverseJoinColumns = @JoinColumn(name = "product_id"))
     private List<Product> products;
 
-    public Order() {}
+    public Order() {
+    }
 
     public Order(
-        String orderId,
-        String eventType,
-        Date deliveryDate,
-        List<Product> products
-    ) {
+            String orderId,
+            String eventType,
+            Date deliveryDate,
+            List<Product> products) {
         this.orderId = orderId;
         this.eventType = eventType;
         this.deliveryDate = deliveryDate;
