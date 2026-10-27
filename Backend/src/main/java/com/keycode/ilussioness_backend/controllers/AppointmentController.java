@@ -3,9 +3,12 @@ package com.keycode.ilussioness_backend.controllers;
 import com.keycode.ilussioness_backend.models.Appointment;
 import com.keycode.ilussioness_backend.repositories.AppointmentRepository;
 import com.keycode.ilussioness_backend.services.AppointmentService;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/appointment")
@@ -31,5 +34,11 @@ public class AppointmentController {
     @PostMapping
     public Appointment createAppointment(@RequestBody Appointment appointment) {
         return appointmentService.createAppointment(appointment);
+    }
+
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<List<Appointment>> getAppointmentsByCustomer(@PathVariable UUID customerId) {
+        List<Appointment> appointments = appointmentService.getAppointmentsByCustomer(customerId);
+        return ResponseEntity.ok(appointments);
     }
 }
