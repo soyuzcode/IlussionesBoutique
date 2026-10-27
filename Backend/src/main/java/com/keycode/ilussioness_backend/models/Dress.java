@@ -1,9 +1,13 @@
 
 package com.keycode.ilussioness_backend.models;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+@Entity
+@Table(name = "dress")
 public class Dress extends Product {
 
     private String measurements;
