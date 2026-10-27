@@ -30,6 +30,9 @@ public class CustomerService {
 
     @Transactional
     public Customer createCustomer(Customer customer) {
+        if (customer.getStatus() == null) {
+            customer.setStatus(com.keycode.ilussioness_backend.models.CustomerStatus.ACTIVO);
+        }
         Customer saved;
         try {
             saved = customerRepository.saveAndFlush(customer);
@@ -71,8 +74,15 @@ public class CustomerService {
         }
 
         Customer customer = existing.get();
-        customer.setName(updatedCustomer.getName());
-        customer.setPhone(updatedCustomer.getPhone());
+        if (updatedCustomer.getName() != null) {
+            customer.setName(updatedCustomer.getName());
+        }
+        if (updatedCustomer.getPhone() != null) {
+            customer.setPhone(updatedCustomer.getPhone());
+        }
+        if (updatedCustomer.getStatus() != null) {
+            customer.setStatus(updatedCustomer.getStatus());
+        }
 
         Customer saved;
         try {

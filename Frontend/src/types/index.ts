@@ -1,7 +1,10 @@
+export type CustomerStatus = 'ACTIVO' | 'FINALIZADO';
+
 export interface Customer {
   id: string;
   name: string;
   phone?: string;
+  status?: CustomerStatus;
   createdAt?: string;
   updatedAt?: string;
 }

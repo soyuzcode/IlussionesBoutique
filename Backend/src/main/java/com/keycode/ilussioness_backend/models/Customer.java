@@ -15,6 +15,10 @@ public class Customer {
     private String name;
     private String phone;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CustomerStatus status = CustomerStatus.ACTIVO;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -26,6 +30,7 @@ public class Customer {
     public Customer(String name, String phone) {
         this.name = name;
         this.phone = phone;
+        this.status = CustomerStatus.ACTIVO;
     }
 
     // Getters y Setters
@@ -37,6 +42,9 @@ public class Customer {
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+
+    public CustomerStatus getStatus() { return status; }
+    public void setStatus(CustomerStatus status) { this.status = status; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
