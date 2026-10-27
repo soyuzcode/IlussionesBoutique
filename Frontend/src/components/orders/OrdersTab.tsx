@@ -3,7 +3,7 @@ import type { Order } from '../../types';
 import { ordersApi } from '../../api/ordersApi';
 import { formatDate } from '../../utils/dates';
 import { formatMoney, orderTotal, printQuote } from '../../utils/quote';
-import OrderModal from './OrderModal';
+import OrderModal from './OrderMnmodal';
 
 interface OrdersTabProps {
   orders: Order[];
