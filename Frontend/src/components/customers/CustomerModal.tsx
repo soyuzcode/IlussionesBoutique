@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { Appointment, Customer } from '../../types';
 import { customersApi } from '../../api/customersApi';
 import { ApiError } from '../../api/httpClient';
-import { formatDate, formatDateOnly, to12h, todayISO } from '../../utils/dates';
+import { formatDate, formatDateOnly, to12h } from '../../utils/dates';
 import AppointmentModal from '../appointments/AppointmentModal';
 
 interface CustomerModalProps {
@@ -28,14 +28,8 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   
-  // Estado para editar la cita activa/próxima de la clienta
+  // Estado para editar una cita específica del historial
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-
-  // Buscar la próxima cita o la más reciente de esta clienta
-  const today = todayISO();
-  const activeAppointment = appointments.find(
-    (a) => a.status === 'SCHEDULED' && a.appointmentDate >= today
-  ) ?? appointments[0];
 
   const cancelEdit = () => {
     setName(customer.name);
@@ -82,8 +76,6 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
       setSaving(false);
     }
   };
-
-  const slot = activeAppointment ? to12h(activeAppointment.appointmentTime) : null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -133,34 +125,40 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
               </div>
             </div>
 
-            {/* Apartado limpio y directo para ver y editar la cita activa sin mostrar todo un historial */}
+            {/* Historial de citas con opción de edición */}
             <div>
-              <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Próxima Cita / Cita Activa</span>
-              {activeAppointment && slot ? (
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex justify-between items-center gap-2">
-                  <div>
-                    <p className="font-semibold text-gray-700">{activeAppointment.reason}</p>
-                    <p className="text-gray-500 text-[11px]">
-                      {formatDateOnly(activeAppointment.appointmentDate)} · {slot.time} {slot.period}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">
-                      {STATUS_LABELS[activeAppointment.status] ?? activeAppointment.status}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setEditingAppointment(activeAppointment)}
-                      className="px-2.5 py-1 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1"
-                      title="Editar cita"
-                    >
-                      ✏️ Editar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-gray-400">Sin citas pendientes o activas.</p>
-              )}
+              <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">
+                Historial de citas ({appointments.length})
+              </span>
+              <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {appointments.length === 0 && <p className="p-2.5 text-gray-400">Sin citas registradas.</p>}
+                {appointments.map((appointment) => {
+                  const { time, period } = to12h(appointment.appointmentTime);
+                  return (
+                    <div key={appointment.id} className="p-2.5 flex justify-between items-center gap-2">
+                      <div>
+                        <p className="font-semibold text-gray-700">{appointment.reason}</p>
+                        <p className="text-gray-500">
+                          {formatDateOnly(appointment.appointmentDate)} · {time} {period}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">
+                          {STATUS_LABELS[appointment.status] ?? appointment.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingAppointment(appointment)}
+                          className="p-1.5 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-lg text-xs font-bold cursor-pointer transition"
+                          title="Editar cita"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -180,7 +178,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
         )}
       </form>
 
-      {/* Sub-modal para editar la cita directamente */}
+      {/* Sub-modal para editar la cita seleccionada del historial */}
       {editingAppointment && (
         <AppointmentModal
           key={editingAppointment.id}
