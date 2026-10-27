@@ -2,11 +2,17 @@ import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 
 import { auditEvent } from '../../lib/audit';
+import { useState, type FormEvent } from 'react';
+import type { Customer, NewAppointmentData } from '../../types';
+import { APPOINTMENT_REASONS } from '../../utils/constants';
+import { TIME_SLOTS, isPastSlot, slotKey, todayISO, type TimeSlot } from '../../utils/dates';
+import TimeSlotPicker from './TimeSlotPicker';
 
-interface NuevoClienteModalProps {
+interface NewClientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAgregarCita: (nuevaCita: { client: string; type: string; time: string; period: string }) => void;
+  customers: Customer[];
+  onAddAppointment: (data: NewAppointmentData) => Promise<void>;
 }
 
 const TIME_PATTERN = /^([01]?\d|2[0-3]):[0-5]\d$/;
@@ -70,11 +76,80 @@ export const NuevoClienteModal: FC<NuevoClienteModalProps> = ({ isOpen, onClose,
     onAgregarCita({ client: trimmedClient, type, time: trimmedTime, period });
     setClient('');
     onClose();
+const inputClass =
+  'w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none';
+const DEFAULT_SLOT = TIME_SLOTS.find((s) => slotKey(s) === '10:00 AM') ?? TIME_SLOTS[0];
+
+export function NewClientModal({ isOpen, onClose, customers, onAddAppointment }: NewClientModalProps) {
+  const [customerId, setCustomerId] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [reason, setReason] = useState(APPOINTMENT_REASONS[0]);
+  const [date, setDate] = useState(todayISO());
+  const [slot, setSlot] = useState<TimeSlot>(DEFAULT_SLOT);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!customerId) {
+      if (!customerName.trim()) {
+        setError('Escribe el nombre de la clienta o elige una existente.');
+        return;
+      }
+      if (customers.some((c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase())) {
+        setError('Ya existe una clienta con ese nombre. Selecciónala en la lista.');
+        return;
+      }
+      if (phone && !/^[0-9+\-\s]{8,15}$/.test(phone)) {
+        setError('El teléfono no es válido.');
+        return;
+      }
+    }
+    if (!date) {
+      setError('Elige la fecha de la cita.');
+      return;
+    }
+    if (date < todayISO()) {
+      setError('La fecha no puede ser anterior a hoy.');
+      return;
+    }
+    if (isPastSlot(slot, date)) {
+      setError('Elige una hora que aún no haya pasado.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onAddAppointment({
+        customerId: customerId || undefined,
+        customerName,
+        phone,
+        reason,
+        date,
+        time: slot.time,
+        period: slot.period,
+      });
+      setCustomerId('');
+      setCustomerName('');
+      setPhone('');
+      setDate(todayISO());
+      setSlot(DEFAULT_SLOT);
+      onClose();
+    } catch {
+      setError('No se pudo guardar la cita. Verifica que el servidor esté activo.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl">
+      <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
           <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Agendar Nueva Cita</h3>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer">
@@ -84,58 +159,78 @@ export const NuevoClienteModal: FC<NuevoClienteModalProps> = ({ isOpen, onClose,
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4 text-xs sm:text-sm">
           <div>
-            <label className="block font-bold text-gray-700 mb-1">Nombre de la Clienta</label>
-            <input
-              type="text"
-              required
-              placeholder="Ej. Lucía Gómez"
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none"
-            />
+            <label className="block font-bold text-gray-700 mb-1">Clienta</label>
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              className={`${inputClass} cursor-pointer`}
+            >
+              <option value="">➕ Nueva clienta</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {!customerId && (
+            <>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Nombre de la Clienta</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Lucía Gómez"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Teléfono (opcional)</label>
+                <input
+                  type="tel"
+                  placeholder="7000-0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block font-bold text-gray-700 mb-1">Tipo de Servicio / Motivo</label>
             <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none cursor-pointer"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className={`${inputClass} cursor-pointer`}
             >
-              <option value="Primera toma de medidas">Primera toma de medidas</option>
-              <option value="Prueba de Vestido">Prueba de Vestido</option>
-              <option value="Ajustes y Confección">Ajustes y Confección</option>
-              <option value="Entrega de Pedido">Entrega de Pedido</option>
+              {APPOINTMENT_REASONS.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Hora</label>
-              <input
-                type="text"
-                placeholder="10:00"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none"
-              />
-            </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-1">Día de la cita</label>
+            <input
+              type="date"
+              min={todayISO()}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={inputClass}
+            />
+          </div>
 
-            <div>
-              <label className="block font-bold text-gray-700 mb-1">Horario</label>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-pink-500 outline-none cursor-pointer"
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-1">Hora</label>
+            <TimeSlotPicker date={date} value={slot} onChange={setSlot} />
           </div>
 
           {error && (
             <p role="alert" className="text-xs font-semibold text-red-600">
+            <p role="alert" className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3 rounded-xl">
               {error}
             </p>
           )}
@@ -150,15 +245,17 @@ export const NuevoClienteModal: FC<NuevoClienteModalProps> = ({ isOpen, onClose,
             </button>
             <button
               type="submit"
-              className="w-1/2 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer shadow-md transition"
+              disabled={saving}
+              className="w-1/2 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer shadow-md transition disabled:opacity-50"
             >
-              Guardar Cita
+              {saving ? 'Guardando...' : 'Guardar Cita'}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-};
+}
 
 export default NuevoClienteModal;
+export default NewClientModal;

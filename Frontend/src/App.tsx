@@ -113,33 +113,61 @@ const mapAppointmentToCita = (
 // APP
 // ============================================================
 
+import NewClientModal from './components/common/NewClientModel';
+import AppointmentModal from './components/appointments/AppointmentModal';
+import CustomersTab from './components/customers/CustomersTab';
+import OrdersTab from './components/orders/OrdersTab';
+import { appointmentsApi, appointmentToCita } from './api/appointmentsApi';
+import { customersApi } from './api/customersApi';
+import { ordersApi } from './api/ordersApi';
+import { daysUntil, formatHeaderDate, to24h, todayISO } from './utils/dates';
+import type { Appointment, AuthUser, Customer, NewAppointmentData, Order } from './types';
+
+type Tab = 'home' | 'customers' | 'orders' | 'inventory';
+
+const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'home', label: 'Inicio', icon: '🏠' },
+  { id: 'customers', label: 'Clientes', icon: '👥' },
+  { id: 'orders', label: 'Pedidos', icon: '🧵' },
+  { id: 'inventory', label: 'Inventario', icon: '📦' },
+];
+
 export function App() {
-  const [isAuthenticated, setIsAuthenticated] =
-    useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [appointmentView, setAppointmentView] = useState<'today' | 'week'>('today');
 
-  const [activeTab, setActiveTab] =
-    useState<string>('Inicio');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState<boolean>(true);
+  const [appointmentsError, setAppointmentsError] = useState('');
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  const [vistaCitas, setVistaCitas] =
-    useState<'hoy' | 'semana'>('hoy');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isNewClientOpen, setIsNewClientOpen] = useState<boolean>(false);
 
-  const [citasHoy, setCitasHoy] =
-    useState<Cita[]>([]);
+  const isAuthenticated = currentUser !== null;
 
-  const [citasSemanales, setCitasSemanales] =
-    useState<Cita[]>([]);
+  const loadAppointments = async () => {
+    setLoadingAppointments(true);
+    setAppointmentsError('');
+    try {
+      setAppointments(await appointmentsApi.getAll());
+    } catch {
+      setAppointments([]);
+      setAppointmentsError('No se pudo cargar la agenda. Verifica que el servidor esté activo.');
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
 
-  const [cargandoCitas, setCargandoCitas] =
-    useState<boolean>(true);
-
-  const [citaSeleccionada, setCitaSeleccionada] =
-    useState<Cita | null>(null);
-
-  const [isNuevoClienteOpen, setIsNuevoClienteOpen] =
-    useState<boolean>(false);
-
-  const [busquedaCliente, setBusquedaCliente] =
-    useState<string>('');
+  const loadCustomers = async () => {
+    try {
+      setCustomers(await customersApi.getAll());
+    } catch {
+      setCustomers([]);
+    }
+  };
 
   // ==========================================================
   // ERRORES NO CONTROLADOS
@@ -272,8 +300,19 @@ export function App() {
       }
     };
 
+  const loadOrders = async () => {
+    try {
+      setOrders(await ordersApi.getAll());
+    } catch {
+      setOrders([]);
+    }
+  };
+
+  useEffect(() => {
     if (isAuthenticated) {
-      cargarCitas();
+      loadAppointments();
+      loadCustomers();
+      loadOrders();
     }
   }, [isAuthenticated]);
 
@@ -485,87 +524,110 @@ export function App() {
         );
       }
     }
+  const handleViewAppointment = (id: number | string) => {
+    setSelectedAppointment(appointments.find((a) => String(a.id) === String(id)) ?? null);
   };
 
-  // ==========================================================
-  // RENDER
-  // ==========================================================
+  const handleAddAppointment = async (data: NewAppointmentData) => {
+    const customerId =
+      data.customerId ??
+      (await customersApi.create({ name: data.customerName.trim(), phone: data.phone.trim() || undefined })).id;
+
+    await appointmentsApi.create({
+      customerId,
+      reason: data.reason,
+      appointmentDate: data.date,
+      appointmentTime: to24h(data.time, data.period),
+    });
+    await Promise.all([loadAppointments(), loadCustomers()]);
+  };
+
+  // Citas de hoy y de los próximos 7 días, ordenadas por fecha y hora
+  const today = todayISO();
+  const weekLimit = new Date(Date.now() + 7 * 86400000).toLocaleDateString('sv-SE');
+  const sortedAppointments = [...appointments].sort((a, b) =>
+    `${a.appointmentDate} ${a.appointmentTime}`.localeCompare(`${b.appointmentDate} ${b.appointmentTime}`),
+  );
+  const todayAppointments = sortedAppointments
+    .filter((a) => a.appointmentDate === today)
+    .map(appointmentToCita);
+  const weekAppointments = sortedAppointments
+    .filter((a) => a.appointmentDate > today && a.appointmentDate <= weekLimit)
+    .map((a) => ({
+      ...appointmentToCita(a),
+      day: new Date(`${a.appointmentDate}T00:00:00`).toLocaleDateString('es-SV', {
+        weekday: 'long',
+        day: 'numeric',
+      }),
+    }));
+
+  // Pedido más cercano a entregarse en los próximos 3 días (para la alerta)
+  const urgentOrder = orders
+    .filter((order) => order.status !== 'DELIVERED')
+    .map((order) => ({ order, days: daysUntil(order.deliveryDate) }))
+    .filter((item) => item.days >= 0 && item.days <= 3)
+    .sort((a, b) => a.days - b.days)[0];
 
   return (
     <div className="min-h-screen w-full bg-white font-sans text-gray-800 flex flex-col">
-
       {!isAuthenticated ? (
         <Login onLoginSuccess={handleLoginSuccess} />
+        <Login onLoginSuccess={(user) => setCurrentUser(user)} />
       ) : (
         <div className="flex-1 flex flex-col w-full min-h-screen relative pb-20">
-
-          {/* HEADER */}
-
+          {/* Header */}
           <header className="bg-pink-600 text-white p-4 sm:px-8 sm:py-6 shadow-md flex justify-between items-center w-full">
-
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                Ilussiones Boutique
-              </h1>
-
-              <p className="text-pink-200 text-xs sm:text-sm mt-0.5">
-                Martes, 29 de Septiembre
-              </p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ilussiones Boutique</h1>
+              <p className="text-pink-200 text-xs sm:text-sm mt-0.5">{formatHeaderDate()}</p>
             </div>
-
             <div className="flex items-center gap-3">
-
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center text-pink-600 font-bold shadow text-xs sm:text-sm">
-                A
+              <div
+                title={currentUser?.email || currentUser?.name}
+                className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center text-pink-600 font-bold shadow text-xs sm:text-sm"
+              >
+                {currentUser?.name.charAt(0).toUpperCase() || '?'}
               </div>
-
               <button
                 onClick={handleLogout}
+                onClick={() => setCurrentUser(null)}
                 className="text-xs bg-pink-700 hover:bg-pink-800 text-white px-3 py-1.5 rounded-lg transition cursor-pointer font-medium"
               >
                 Salir
               </button>
-
             </div>
-
           </header>
 
-          {/* CONTENIDO PRINCIPAL */}
-
+          {/* Main content */}
           <main className="flex-1 w-full p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
-
-            {/* ==================================================
-                INICIO
-            ================================================== */}
-
-            {activeTab === 'Inicio' && (
+            {activeTab === 'home' && (
               <>
-
-                {/* ALERTA */}
-
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-xs flex items-start justify-between w-full">
-
-                  <div className="flex items-start">
-
-                    <span className="text-red-500 text-lg sm:text-xl mr-3">
-                      ⚠️
-                    </span>
-
-                    <div>
-
-                      <h3 className="text-red-800 font-bold text-xs sm:text-sm">
-                        Actualización Pendiente
-                      </h3>
-
-                      <p className="text-red-600 text-xs sm:text-sm mt-0.5">
-                        El vestido de "María López"
-                        se entrega en 3 días.
-                        Confirma su estado.
-                      </p>
-
+                {urgentOrder && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-xs flex items-start justify-between w-full">
+                    <div className="flex items-start">
+                      <span className="text-red-500 text-lg sm:text-xl mr-3">⚠️</span>
+                      <div>
+                        <h3 className="text-red-800 font-bold text-xs sm:text-sm">Actualización Pendiente</h3>
+                        <p className="text-red-600 text-xs sm:text-sm mt-0.5">
+                          El pedido "{urgentOrder.order.eventType}"
+                          {urgentOrder.order.customer ? ` de ${urgentOrder.order.customer.name}` : ''} se entrega{' '}
+                          {urgentOrder.days === 0
+                            ? 'hoy'
+                            : urgentOrder.days === 1
+                              ? 'mañana'
+                              : `en ${urgentOrder.days} días`}
+                          . Confirma su estado.
+                        </p>
+                      </div>
                     </div>
-
+                    <button
+                      onClick={() => setActiveTab('orders')}
+                      className="text-xs font-bold text-red-700 hover:underline cursor-pointer ml-2 whitespace-nowrap"
+                    >
+                      Ver Pedidos
+                    </button>
                   </div>
+                )}
 
                   <button
                     onClick={() =>
@@ -580,258 +642,94 @@ export function App() {
 
                 {/* ACCESOS RÁPIDOS */}
 
+                {/* Quick actions */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-
                   <button
-                    onClick={() =>
-                      setIsNuevoClienteOpen(true)
-                    }
+                    onClick={() => setIsNewClientOpen(true)}
                     className="bg-gray-50 hover:bg-pink-50 p-5 rounded-2xl border border-gray-100 flex items-center justify-center gap-3 transition active:scale-98 cursor-pointer shadow-xs"
                   >
-                    <div className="bg-pink-100 p-3 rounded-full text-pink-600 text-2xl">
-                      📝
-                    </div>
-
-                    <span className="font-semibold text-gray-700 text-sm sm:text-base">
-                      Nuevo Cliente / Cita
-                    </span>
+                    <div className="bg-pink-100 p-3 rounded-full text-pink-600 text-2xl">📝</div>
+                    <span className="font-semibold text-gray-700 text-sm sm:text-base">Nuevo Cliente / Cita</span>
                   </button>
 
                   <button
                     onClick={() =>
                       handleTabChange('Inventario')
                     }
+                    onClick={() => setActiveTab('inventory')}
                     className="bg-gray-50 hover:bg-pink-50 p-5 rounded-2xl border border-gray-100 flex items-center justify-center gap-3 transition active:scale-98 cursor-pointer shadow-xs"
                   >
-                    <div className="bg-purple-100 p-3 rounded-full text-purple-600 text-2xl">
-                      👗
-                    </div>
-
-                    <span className="font-semibold text-gray-700 text-sm sm:text-base">
-                      Ver Catálogo
-                    </span>
+                    <div className="bg-purple-100 p-3 rounded-full text-purple-600 text-2xl">👗</div>
+                    <span className="font-semibold text-gray-700 text-sm sm:text-base">Ver Catálogo</span>
                   </button>
-
                 </div>
 
-                {/* AGENDA */}
-
+                {/* Appointments */}
                 <section className="w-full">
-
                   <div className="flex justify-between items-center mb-3">
-
                     <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
                       📅 Agenda de Citas
                     </h2>
-
                     <div className="flex bg-gray-100 p-1 rounded-xl">
-
-                      <button
-                        onClick={() =>
-                          setVistaCitas('hoy')
-                        }
-                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${
-                          vistaCitas === 'hoy'
-                            ? 'bg-white text-pink-600 shadow-xs'
-                            : 'text-gray-500'
-                        }`}
-                      >
-                        Hoy
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          setVistaCitas('semana')
-                        }
-                        className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${
-                          vistaCitas === 'semana'
-                            ? 'bg-white text-pink-600 shadow-xs'
-                            : 'text-gray-500'
-                        }`}
-                      >
-                        Esta Semana
-                      </button>
-
+                      {(['today', 'week'] as const).map((view) => (
+                        <button
+                          key={view}
+                          onClick={() => setAppointmentView(view)}
+                          className={`px-3 py-1 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition ${
+                            appointmentView === view ? 'bg-white text-pink-600 shadow-xs' : 'text-gray-500'
+                          }`}
+                        >
+                          {view === 'today' ? 'Hoy' : 'Esta Semana'}
+                        </button>
+                      ))}
                     </div>
-
                   </div>
 
-                  {cargandoCitas ? (
-                    <div className="text-center py-8 text-xs text-gray-400">
-                      Cargando agenda...
-                    </div>
+                  {loadingAppointments ? (
+                    <div className="text-center py-8 text-xs text-gray-400">Cargando agenda...</div>
+                  ) : appointmentsError ? (
+                    <p role="alert" className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3 rounded-xl">
+                      {appointmentsError}
+                    </p>
                   ) : (
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden divide-y divide-gray-100 w-full">
-
-                      {vistaCitas === 'hoy' &&
-                        citasHoy.map((cita) => (
-                          <CitaCard
-                            key={cita.id}
-                            cita={cita}
-                            onVerDetalle={
-                              handleVerDetalleCita
-                            }
-                          />
+                      {appointmentView === 'today' &&
+                        (todayAppointments.length === 0 ? (
+                          <p className="p-4 text-xs text-gray-400 text-center">No hay citas para hoy.</p>
+                        ) : (
+                          todayAppointments.map((cita) => (
+                            <CitaCard key={cita.id} cita={cita} onVerDetalle={handleViewAppointment} />
+                          ))
                         ))}
 
-                      {vistaCitas === 'semana' &&
-                        citasSemanales.map(
-                          (cita) => (
+                      {appointmentView === 'week' &&
+                        (weekAppointments.length === 0 ? (
+                          <p className="p-4 text-xs text-gray-400 text-center">No hay citas esta semana.</p>
+                        ) : (
+                          weekAppointments.map((cita) => (
                             <CitaCard
                               key={cita.id}
                               cita={cita}
                               esVistaSemanal={true}
-                              onVerDetalle={
-                                handleVerDetalleCita
-                              }
+                              onVerDetalle={handleViewAppointment}
                             />
-                          )
-                        )}
-
+                          ))
+                        ))}
                     </div>
                   )}
-
                 </section>
-
               </>
             )}
 
-            {/* ==================================================
-                CLIENTES
-            ================================================== */}
-
-            {activeTab === 'Clientes' && (
-              <div className="space-y-4 w-full">
-
-                <div className="flex justify-between items-center">
-
-                  <h2 className="text-base sm:text-lg font-bold text-gray-800">
-                    Gestión de Clientes
-                  </h2>
-
-                  <button
-                    onClick={() =>
-                      setIsNuevoClienteOpen(true)
-                    }
-                    className="px-4 py-2 bg-pink-600 text-white rounded-xl text-xs sm:text-sm font-bold cursor-pointer hover:bg-pink-700 transition"
-                  >
-                    + Nuevo Cliente
-                  </button>
-
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Buscar cliente por nombre..."
-                  value={busquedaCliente}
-                  onChange={(e) =>
-                    setBusquedaCliente(
-                      e.target.value
-                    )
-                  }
-                  className="w-full p-3.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500"
-                />
-
-                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs divide-y divide-gray-100">
-
-                  {citasHoy
-                    .filter((c) =>
-                      c.client
-                        .toLowerCase()
-                        .includes(
-                          busquedaCliente.toLowerCase()
-                        )
-                    )
-                    .map((c) => (
-                      <div
-                        key={c.id}
-                        className="py-3 flex justify-between items-center text-xs sm:text-sm"
-                      >
-
-                        <div>
-
-                          <p className="font-bold text-gray-800">
-                            {c.client}
-                          </p>
-
-                          <p className="text-gray-500">
-                            {c.type}
-                          </p>
-
-                        </div>
-
-                        <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold">
-                          {c.time}{' '}
-                          {c.period || ''}
-                        </span>
-
-                      </div>
-                    ))}
-
-                </div>
-
-              </div>
+            {activeTab === 'customers' && (
+              <CustomersTab
+                customers={customers}
+                onNew={() => setIsNewClientOpen(true)}
+                onRefresh={loadCustomers}
+              />
             )}
 
-            {/* ==================================================
-                PEDIDOS
-            ================================================== */}
-
-            {activeTab === 'Pedidos' && (
-              <div className="space-y-4 w-full">
-
-                <h2 className="text-base sm:text-lg font-bold text-gray-800">
-                  Seguimiento de Pedidos
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                  {mockPedidos.map((ped) => (
-                    <div
-                      key={ped.id}
-                      className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2"
-                    >
-
-                      <div className="flex justify-between items-center">
-
-                        <span className="text-xs font-bold text-pink-600">
-                          {ped.id}
-                        </span>
-
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-pink-50 text-pink-700 rounded-full">
-                          {ped.status}
-                        </span>
-
-                      </div>
-
-                      <h3 className="font-bold text-gray-800 text-sm">
-                        {ped.client}
-                      </h3>
-
-                      <p className="text-xs text-gray-500">
-                        {ped.item}
-                      </p>
-
-                      <p className="text-[11px] text-gray-400 font-medium">
-                        Entrega estimada:{' '}
-                        {ped.deliveryDate}
-                      </p>
-
-                    </div>
-                  ))}
-
-                </div>
-
-              </div>
-            )}
-
-            {/* ==================================================
-                INVENTARIO
-            ================================================== */}
-
-            {activeTab === 'Inventario' && (
-              <ProductTable />
-            )}
+            {activeTab === 'orders' && <OrdersTab orders={orders} onRefresh={loadOrders} />}
 
             {/* ==================================================
                 AUDITORÍA
@@ -841,127 +739,28 @@ export function App() {
               <AuditLogTable />
             )}
 
+            {activeTab === 'inventory' && <ProductTable />}
           </main>
 
-          {/* ==================================================
-              MODAL NUEVA CITA
-          ================================================== */}
-
-          <NuevoClienteModal
-            isOpen={isNuevoClienteOpen}
-            onClose={() =>
-              setIsNuevoClienteOpen(false)
-            }
-            onAgregarCita={
-              handleAgregarNuevaCita
-            }
+          {/* New customer / appointment modal */}
+          <NewClientModal
+            isOpen={isNewClientOpen}
+            onClose={() => setIsNewClientOpen(false)}
+            customers={customers}
+            onAddAppointment={handleAddAppointment}
           />
 
-          {/* ==================================================
-              MODAL DETALLE CITA
-          ================================================== */}
-
-          {citaSeleccionada && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-
-              <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
-
-                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-
-                  <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
-                    Detalle de la Cita
-                  </h3>
-
-                  <button
-                    onClick={() =>
-                      setCitaSeleccionada(null)
-                    }
-                    className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
-                  >
-                    ✕
-                  </button>
-
-                </div>
-
-                <div className="space-y-3 text-xs">
-
-                  <div>
-
-                    <span className="text-gray-400 text-[10px] block uppercase font-bold">
-                      Cliente
-                    </span>
-
-                    <p className="font-bold text-gray-800 text-sm">
-                      {citaSeleccionada.client}
-                    </p>
-
-                  </div>
-
-                  <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-
-                    <div>
-
-                      <span className="text-gray-400 text-[10px] block uppercase font-bold">
-                        Horario
-                      </span>
-
-                      <p className="text-gray-700 font-semibold">
-
-                        {citaSeleccionada.day
-                          ? `${citaSeleccionada.day} • `
-                          : ''}
-
-                        {citaSeleccionada.time}{' '}
-                        {citaSeleccionada.period ||
-                          ''}
-
-                      </p>
-
-                    </div>
-
-                    <div>
-
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-700">
-                        {citaSeleccionada.status ||
-                          'active'}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                  <div>
-
-                    <span className="text-gray-400 text-[10px] block uppercase font-bold">
-                      Servicio / Motivo
-                    </span>
-
-                    <p className="text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 mt-1">
-                      {citaSeleccionada.type}
-                    </p>
-
-                  </div>
-
-                </div>
-
-                <button
-                  onClick={() =>
-                    setCitaSeleccionada(null)
-                  }
-                  className="w-full py-2.5 bg-pink-600 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-pink-700 transition active:scale-95 shadow-md"
-                >
-                  Cerrar
-                </button>
-
-              </div>
-
-            </div>
+          {/* Appointment detail / edit modal */}
+          {selectedAppointment && (
+            <AppointmentModal
+              key={selectedAppointment.id}
+              appointment={selectedAppointment}
+              onClose={() => setSelectedAppointment(null)}
+              onSaved={loadAppointments}
+            />
           )}
 
-          {/* ==================================================
-              NAVEGACIÓN
-          ================================================== */}
-
+          {/* Bottom navigation */}
           <nav className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 flex justify-around py-3 z-40 shadow-lg">
 
             {[
@@ -1001,29 +800,24 @@ export function App() {
                   onClick={() =>
                     handleTabChange(item.id)
                   }
+            {NAV_ITEMS.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
                   className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer text-[10px] sm:text-xs font-semibold transition ${
-                    isActive
-                      ? 'text-pink-600 font-bold'
-                      : 'text-gray-400 hover:text-pink-600'
+                    isActive ? 'text-pink-600 font-bold' : 'text-gray-400 hover:text-pink-600'
                   }`}
                 >
-
-                  <span className="text-lg sm:text-xl">
-                    {item.icon}
-                  </span>
-
+                  <span className="text-lg sm:text-xl">{item.icon}</span>
                   {item.label}
-
                 </button>
               );
-
             })}
-
           </nav>
-
         </div>
       )}
-
     </div>
   );
 }
