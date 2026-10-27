@@ -39,4 +39,17 @@ public class CustomerController {
         customerRepository.deleteById(id);
         return ResponseEntity.noContent().build(); // Devuelve 204 si se eliminó con éxito
     }
+
+    // --- NUEVO MÉTODO PARA ACTUALIZAR CLIENTE ---
+    @PutMapping("/{id}")
+    public ResponseEntity<Customer> updateCustomer(@PathVariable UUID id, @RequestBody Customer updatedCustomer) {
+        return customerRepository.findById(id)
+            .map(customer -> {
+                customer.setName(updatedCustomer.getName());
+                customer.setPhone(updatedCustomer.getPhone());
+                Customer savedCustomer = customerRepository.save(customer);
+                return ResponseEntity.ok(savedCustomer);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 }
