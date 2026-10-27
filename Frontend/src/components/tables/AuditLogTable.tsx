@@ -83,7 +83,7 @@ export function AuditLogTable() {
     setLoading(true);
     setError(null);
     try {
-      const url = `${API_BASE_URL}/audit/logs?${query}`;
+      const url = `${API_BASE_URL}/api/audit/logs?${query}`;
       const res = await fetch(url, {
         method: 'GET',
         headers: {
@@ -108,7 +108,7 @@ export function AuditLogTable() {
       setLoading(true);
       setError(null);
       try {
-        const url = `${API_BASE_URL}/audit/logs?${query}`;
+        const url = `${API_BASE_URL}/api/audit/logs?${query}`;
         const res = await fetch(url, {
           method: 'GET',
           headers: {
