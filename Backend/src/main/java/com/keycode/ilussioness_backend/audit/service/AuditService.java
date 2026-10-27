@@ -1,6 +1,7 @@
 package com.keycode.ilussioness_backend.audit.service;
 
 import com.keycode.ilussioness_backend.audit.api.AuditEventRequest;
+import com.keycode.ilussioness_backend.audit.api.dto.AuditLogSearchRequest;
 import com.keycode.ilussioness_backend.audit.domain.AuditActorType;
 import com.keycode.ilussioness_backend.audit.domain.AuditEntityType;
 import com.keycode.ilussioness_backend.audit.domain.AuditEventType;
@@ -9,6 +10,12 @@ import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.domain.AuditSource;
 import com.keycode.ilussioness_backend.audit.repository.AuditLogRepository;
 import com.keycode.ilussioness_backend.audit.web.RequestIdFilter;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +25,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -129,6 +138,88 @@ public class AuditService {
         );
 
         return auditLogRepository.save(event);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLog> search(AuditLogSearchRequest request) {
+        Specification<AuditLog> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (request != null) {
+                if (request.from() != null) {
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), request.from()));
+                }
+                if (request.to() != null) {
+                    predicates.add(cb.lessThanOrEqualTo(root.get("occurredAt"), request.to()));
+                }
+                if (request.eventType() != null && !request.eventType().isBlank()) {
+                    try {
+                        AuditEventType eventType = AuditEventType.valueOf(request.eventType().trim().toUpperCase());
+                        predicates.add(cb.equal(root.get("eventType"), eventType));
+                    } catch (IllegalArgumentException ex) {
+                        // Ignore invalid filter values rather than failing the whole query
+                    }
+                }
+                if (request.entityType() != null && !request.entityType().isBlank()) {
+                    try {
+                        AuditEntityType entityType = AuditEntityType.valueOf(request.entityType().trim().toUpperCase());
+                        predicates.add(cb.equal(root.get("entityType"), entityType));
+                    } catch (IllegalArgumentException ex) {
+                        // Ignore invalid filter values
+                    }
+                }
+                if (request.eventSource() != null && !request.eventSource().isBlank()) {
+                    try {
+                        AuditSource source = AuditSource.valueOf(request.eventSource().trim().toUpperCase());
+                        predicates.add(cb.equal(root.get("eventSource"), source));
+                    } catch (IllegalArgumentException ex) {
+                        // Ignore invalid filter values
+                    }
+                }
+                if (request.outcome() != null && !request.outcome().isBlank()) {
+                    try {
+                        AuditOutcome outcome = AuditOutcome.valueOf(request.outcome().trim().toUpperCase());
+                        predicates.add(cb.equal(root.get("outcome"), outcome));
+                    } catch (IllegalArgumentException ex) {
+                        // Ignore invalid filter values
+                    }
+                }
+                if (request.actorType() != null && !request.actorType().isBlank()) {
+                    try {
+                        AuditActorType actorType = AuditActorType.valueOf(request.actorType().trim().toUpperCase());
+                        predicates.add(cb.equal(root.get("actorType"), actorType));
+                    } catch (IllegalArgumentException ex) {
+                        // Ignore invalid filter values
+                    }
+                }
+                if (request.actorId() != null && !request.actorId().isBlank()) {
+                    predicates.add(cb.like(cb.lower(root.get("actorId")), "%" + request.actorId().trim().toLowerCase() + "%"));
+                }
+                if (request.entityId() != null && !request.entityId().isBlank()) {
+                    predicates.add(cb.like(cb.lower(root.get("entityId")), "%" + request.entityId().trim().toLowerCase() + "%"));
+                }
+                if (request.requestId() != null && !request.requestId().isBlank()) {
+                    predicates.add(cb.equal(root.get("requestId"), request.requestId().trim()));
+                }
+                if (request.sessionId() != null && !request.sessionId().isBlank()) {
+                    predicates.add(cb.equal(root.get("sessionId"), request.sessionId().trim()));
+                }
+                if (request.q() != null && !request.q().isBlank()) {
+                    String term = "%" + request.q().trim().toLowerCase() + "%";
+                    predicates.add(cb.or(
+                            cb.like(cb.lower(root.get("requestId")), term),
+                            cb.like(cb.lower(root.get("sessionId")), term),
+                            cb.like(cb.lower(root.get("entityId")), term),
+                            cb.like(cb.lower(root.get("actorId")), term)
+                    ));
+                }
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        int page = request == null ? 0 : request.pageOrDefault();
+        int size = request == null ? 50 : request.sizeOrDefault();
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurredAt"));
+        return auditLogRepository.findAll(spec, pageable);
     }
 
     private static AuditLog build(

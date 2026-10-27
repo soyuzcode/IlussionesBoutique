@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 import Login from './components/common/Login';
 import ProductTable from './components/tables/ProductTable';
+import AuditLogTable from './components/tables/AuditLogTable';
 import CitaCard from './components/common/CitaCard';
 import NuevoClienteModal from './components/common/NewClientModel';
 import { auditEvent, sanitiseErrorName } from './lib/audit';
@@ -11,12 +12,13 @@ import type { Cita } from './components/common/CitaCard';
 
 const SECTION_BY_TAB: Record<
   string,
-  'INICIO' | 'CLIENTES' | 'PEDIDOS' | 'INVENTARIO'
+  'INICIO' | 'CLIENTES' | 'PEDIDOS' | 'INVENTARIO' | 'AUDITORIA'
 > = {
   Inicio: 'INICIO',
   Clientes: 'CLIENTES',
   Pedidos: 'PEDIDOS',
   Inventario: 'INVENTARIO',
+  Auditoría: 'AUDITORIA',
 };
 
 // ============================================================
@@ -831,6 +833,14 @@ export function App() {
               <ProductTable />
             )}
 
+            {/* ==================================================
+                AUDITORÍA
+            ================================================== */}
+
+            {activeTab === 'Auditoría' && (
+              <AuditLogTable />
+            )}
+
           </main>
 
           {/* ==================================================
@@ -974,6 +984,11 @@ export function App() {
                 id: 'Inventario',
                 label: 'Inventario',
                 icon: '📦',
+              },
+              {
+                id: 'Auditoría',
+                label: 'Auditoría',
+                icon: '🧾',
               },
             ].map((item) => {
 
