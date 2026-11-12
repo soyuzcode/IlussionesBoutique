@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/appointment")
-@CrossOrigin(origins = "*")
+@RestController // Recibir peticiones, JSON
+@RequestMapping("/api/appointment") 
+@CrossOrigin(origins = "*") 
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
