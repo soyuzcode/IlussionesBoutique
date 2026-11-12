@@ -6,6 +6,7 @@ import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.domain.AuditSource;
 import com.keycode.ilussioness_backend.audit.repository.AuditLogRepository;
 import com.keycode.ilussioness_backend.models.Appointment;
+import com.keycode.ilussioness_backend.models.AppointmentStatus;
 import com.keycode.ilussioness_backend.models.Customer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -86,14 +89,50 @@ class BusinessAuditTransactionIntegrationTest {
     }
 
     @Test
-    void realPersistenceFailureIsAuditedAndOriginalExceptionIsReturned() {
+    void validationRejectionIsAuditedAndNoRowIsPersisted() {
+        // No customer -> the service rejects before touching the database.
         Appointment invalidAppointment = new Appointment();
 
         assertThatThrownBy(() -> appointmentService.createAppointment(invalidAppointment))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(BusinessValidationException.class);
 
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "select id, event_type, outcome, event_source from audit_log"
+        );
+        assertThat(row)
+                .containsEntry("EVENT_TYPE", "APPOINTMENT_CREATE_FAILED")
+                .containsEntry("OUTCOME", "REJECTED")
+                .containsEntry("EVENT_SOURCE", "BACKEND");
+
+        AuditLog audit = auditLogRepository.findById(
+                UUID.fromString(row.get("ID").toString())
+        ).orElseThrow();
+        assertThat(audit.getOutcome()).isEqualTo(AuditOutcome.REJECTED);
+        assertThat(audit.getMetadata()).containsEntry("REASON", "REQUIRED");
+        assertThat(jdbcTemplate.queryForObject("select count(*) from appointment", Long.class))
+                .isZero();
+    }
+
+    @Test
+    void realPersistenceFailureIsAuditedAndOriginalExceptionIsReturned() {
+        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Appointment appointment = new Appointment(
+                customer,
+                "fittings",
+                LocalDate.now(),
+                LocalTime.of(10, 0),
+                AppointmentStatus.SCHEDULED
+        );
+        // Passes service validation but exceeds the varchar(255) database column,
+        // so the failure happens at flush time, not in the business rules.
+        appointment.setGoogleEventId("x".repeat(300));
+
+        assertThatThrownBy(() -> appointmentService.createAppointment(appointment))
+                .isInstanceOf(RuntimeException.class);
+
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "select id, event_type, outcome, event_source from audit_log "
+                        + "where event_type = 'APPOINTMENT_CREATE_FAILED'"
         );
         assertThat(row)
                 .containsEntry("EVENT_TYPE", "APPOINTMENT_CREATE_FAILED")

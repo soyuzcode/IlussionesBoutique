@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "product")
@@ -20,7 +22,9 @@ public abstract class Product {
     @Column(name = "id", nullable = false)
     private UUID productId;
 
-    @Column(name = "price", nullable = false, precision = 12, scale = 2)
+    @NotNull(message = "price is required")
+    @DecimalMin(value = "0.00", message = "price must not be negative")
+    @Column(name = "price", nullable = false, precision = 10, scale = 2)
     protected BigDecimal price;
 
     @Column(name = "photo_url")

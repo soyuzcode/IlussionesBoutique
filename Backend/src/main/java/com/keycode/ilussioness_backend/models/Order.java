@@ -1,6 +1,8 @@
 package com.keycode.ilussioness_backend.models;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.Date;
 import java.util.List;
 
@@ -9,8 +11,13 @@ import java.util.List;
 public class Order {
 
     @Id
+    @NotBlank(message = "orderId is required")
+    @Size(max = 64, message = "orderId must be at most 64 characters")
+    @Column(name = "order_id")
     private String orderId;
 
+    @NotBlank(message = "eventType is required")
+    @Column(name = "event_type")
     private String eventType;
 
     @Temporal(TemporalType.TIMESTAMP)

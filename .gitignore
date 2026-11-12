@@ -128,3 +128,13 @@ logs/
 # 📝 AUXILIARY DOCUMENTATION
 # ==========================================
 HELP.md
+
+
+# ==========================================
+# 🗄️ DATABASE BACKUPS & DUMPS (never commit)
+# ==========================================
+# Plain-SQL dumps may contain real customer data; they stay local only.
+*.backup
+*.dump
+*.sql.gz
+docs/database/*.backup

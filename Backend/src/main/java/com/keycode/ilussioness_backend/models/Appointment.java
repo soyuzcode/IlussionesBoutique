@@ -11,6 +11,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -27,17 +30,21 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @NotNull(message = "customer is required")
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
     // --- NUEVO: Campo para el motivo de la cita ---
+    @Size(max = 500, message = "reason must be at most 500 characters")
     @Column(name = "reason")
     private String reason;
 
+    @NotNull(message = "appointmentDate is required")
     @Column(name = "appointment_date", nullable = false)
     private LocalDate appointmentDate;
 
+    @NotNull(message = "appointmentTime is required")
     @Column(name = "appointment_time", nullable = false)
     private LocalTime appointmentTime;
 

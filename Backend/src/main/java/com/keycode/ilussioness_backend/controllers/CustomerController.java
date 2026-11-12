@@ -1,8 +1,8 @@
 package com.keycode.ilussioness_backend.controllers;
 
 import com.keycode.ilussioness_backend.models.Customer;
-import com.keycode.ilussioness_backend.repositories.CustomerRepository;
 import com.keycode.ilussioness_backend.services.CustomerService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,24 +15,19 @@ import java.util.List;
 @CrossOrigin(origins = "*") // Permite llamadas desde el frontend
 public class CustomerController {
 
-    private final CustomerRepository customerRepository;
     private final CustomerService customerService;
 
-    public CustomerController(
-            CustomerRepository customerRepository,
-            CustomerService customerService
-    ) {
-        this.customerRepository = customerRepository;
+    public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
     }
 
     @GetMapping
     public List<Customer> getAllCustomers() {
-        return customerRepository.findAll();
+        return customerService.getAllCustomers();
     }
 
     @PostMapping
-    public Customer createCustomer(@RequestBody Customer customer) {
+    public Customer createCustomer(@Valid @RequestBody Customer customer) {
         return customerService.createCustomer(customer);
     }
 
@@ -47,7 +42,10 @@ public class CustomerController {
 
     // --- NUEVO MÉTODO PARA ACTUALIZAR CLIENTE ---
     @PutMapping("/{id}")
-    public ResponseEntity<Customer> updateCustomer(@PathVariable UUID id, @RequestBody Customer updatedCustomer) {
+    public ResponseEntity<Customer> updateCustomer(
+            @PathVariable UUID id,
+            @RequestBody Customer updatedCustomer
+    ) {
         return customerService.updateCustomer(id, updatedCustomer)
             .map(ResponseEntity::ok)
             .orElseGet(() -> ResponseEntity.notFound().build());
@@ -56,7 +54,7 @@ public class CustomerController {
     // --- NUEVO MÉTODO PARA BUSCAR POR ID ---
     @GetMapping("/{id}")
     public ResponseEntity<Customer> getCustomerById(@PathVariable UUID id) {
-        return customerRepository.findById(id)
+        return customerService.getCustomerById(id)
             .map(customer -> ResponseEntity.ok(customer))
             .orElseGet(() -> ResponseEntity.notFound().build());
     }

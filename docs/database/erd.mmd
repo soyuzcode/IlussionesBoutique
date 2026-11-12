@@ -1,0 +1,174 @@
+%% Ilussiones Boutique - public schema ER diagram (Mermaid).
+%% Source: docs/database/schema.sql (derived from the plain-SQL backup).
+%% Render at https://mermaid.live or in any Mermaid-enabled Markdown viewer.
+
+erDiagram
+    PRODUCT ||--o| ALBUM : "JOINED subtype"
+    PRODUCT ||--o| CARD : "JOINED subtype"
+    PRODUCT ||--o| CUP : "JOINED subtype"
+    PRODUCT ||--o| DRESS : "JOINED subtype"
+    PRODUCT ||--o| PLUSH : "JOINED subtype"
+
+    CUSTOMER ||--o{ APPOINTMENT : "books"
+    CUSTOMER ||--o{ ORDER : "places"
+    USER ||--o{ ORDER : "manages"
+
+    ORDER ||--o{ ORDER_ITEM : "contains"
+    PRODUCT ||--o{ ORDER_ITEM : "ordered as"
+
+    ORDER ||--o{ ORDER_DRESS : "customises"
+    DRESS ||--o{ ORDER_DRESS : "base for"
+
+    ORDER ||--o{ PAYMENT : "paid by"
+    USER ||--o{ PAYMENT : "records"
+
+    ORDERS ||--o{ ORDER_PRODUCTS : "legacy join"
+    PRODUCT ||--o{ ORDER_PRODUCTS : "legacy join"
+
+    PRODUCT {
+        uuid id PK
+        product_type type
+        varchar name
+        numeric price
+        text photo_url
+        text materials
+        product_status status
+        int stock
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ALBUM {
+        uuid product_id PK,FK
+        varchar dimensions
+        varchar cover_material
+        varchar size
+        varchar design
+    }
+
+    CARD {
+        uuid product_id PK,FK
+        int quantity
+        varchar design
+    }
+
+    CUP {
+        uuid product_id PK,FK
+        int quantity
+        numeric capacity
+        varchar design
+    }
+
+    DRESS {
+        uuid product_id PK,FK
+        varchar measurements
+        varchar color
+        varchar cut_type
+        boolean requires_changes
+    }
+
+    PLUSH {
+        uuid product_id PK,FK
+        varchar size
+        varchar model
+    }
+
+    CUSTOMER {
+        uuid id PK
+        varchar name
+        varchar phone
+        text status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    USER {
+        uuid id PK
+        varchar name
+        varchar email UK
+        text password_hash
+        user_role role
+        boolean active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    APPOINTMENT {
+        uuid id PK
+        uuid customer_id FK
+        date appointment_date
+        time appointment_time
+        appointment_status status
+        varchar google_event_id
+        text reason
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ORDER {
+        uuid id PK
+        uuid customer_id FK
+        uuid user_id FK
+        varchar event_type
+        date delivery_date
+        order_status status
+        payment_status payment_status
+        numeric total_amount
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ORDER_ITEM {
+        uuid order_id PK,FK
+        uuid product_id PK,FK
+        int quantity
+        numeric unit_price
+    }
+
+    ORDER_DRESS {
+        uuid order_id PK,FK
+        uuid base_product_id FK
+        text measurements
+        text color
+        text cut_type
+        text customization_notes
+        numeric agreed_price
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    PAYMENT {
+        uuid id PK
+        uuid order_id FK
+        uuid user_id FK
+        numeric amount
+        varchar method
+        timestamptz paid_at
+    }
+
+    ORDERS {
+        text order_id PK
+        text event_type
+        timestamp delivery_date
+    }
+
+    ORDER_PRODUCTS {
+        text order_id PK,FK
+        uuid product_id PK,FK
+    }
+
+    AUDIT_LOG {
+        uuid id PK
+        timestamptz occurred_at
+        varchar event_type
+        varchar action
+        varchar actor_type
+        varchar actor_id
+        varchar entity_type
+        varchar entity_id
+        varchar event_source
+        varchar outcome
+        varchar session_id
+        varchar request_id
+        jsonb metadata
+    }

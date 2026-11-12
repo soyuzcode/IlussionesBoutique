@@ -163,6 +163,42 @@ public enum AuditEventType {
             false,
             Set.of(AuditMetadataKey.REASON)
     ),
+    APPOINTMENT_UPDATED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of(AuditMetadataKey.APPOINTMENT_STATUS)
+    ),
+    APPOINTMENT_UPDATE_REJECTED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    APPOINTMENT_UPDATE_FAILED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    APPOINTMENT_DELETED(
+            AuditAction.DELETE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of()
+    ),
+    APPOINTMENT_DELETE_REJECTED(
+            AuditAction.DELETE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    APPOINTMENT_DELETE_FAILED(
+            AuditAction.DELETE,
+            Set.of(AuditEntityType.APPOINTMENT),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
     ORDER_CREATED(
             AuditAction.CREATE,
             Set.of(AuditEntityType.ORDER),
@@ -174,6 +210,27 @@ public enum AuditEventType {
     ),
     ORDER_CREATE_FAILED(
             AuditAction.CREATE,
+            Set.of(AuditEntityType.ORDER),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    ORDER_UPDATED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.ORDER),
+            false,
+            Set.of(
+                    AuditMetadataKey.PRODUCT_COUNT,
+                    AuditMetadataKey.HAS_DELIVERY_DATE
+            )
+    ),
+    ORDER_UPDATE_REJECTED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.ORDER),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    ORDER_UPDATE_FAILED(
+            AuditAction.UPDATE,
             Set.of(AuditEntityType.ORDER),
             false,
             Set.of(AuditMetadataKey.REASON)

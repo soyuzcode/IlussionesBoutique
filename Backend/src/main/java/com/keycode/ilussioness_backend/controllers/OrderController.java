@@ -1,8 +1,8 @@
 package com.keycode.ilussioness_backend.controllers;
 
 import com.keycode.ilussioness_backend.models.Order;
-import com.keycode.ilussioness_backend.repositories.OrderRepository;
 import com.keycode.ilussioness_backend.services.OrderService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,25 +13,40 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class OrderController {
 
-    private final OrderRepository orderRepository;
     private final OrderService orderService;
 
-    public OrderController(
-            OrderRepository orderRepository,
-            OrderService orderService
-    ) {
-        this.orderRepository = orderRepository;
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
 
     @GetMapping
     public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+        return orderService.getAllOrders();
     }
 
     @PostMapping
-    public Order createOrder(@RequestBody Order order) {
+    public Order createOrder(@Valid @RequestBody Order order) {
         return orderService.createOrder(order);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable("id") String id) {
+        return orderService.getOrderById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // PUT accepts a partial body: the service merges the non-null fields and
+    // validates the resulting entity, so a body without the read-only orderId
+    // (as sent by the frontend) is valid.
+    @PutMapping("/{id}")
+    public ResponseEntity<Order> updateOrder(
+            @PathVariable("id") String id,
+            @RequestBody Order order
+    ) {
+        return orderService.updateOrder(id, order)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")

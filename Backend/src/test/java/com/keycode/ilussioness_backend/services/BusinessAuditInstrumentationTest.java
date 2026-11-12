@@ -8,6 +8,7 @@ import com.keycode.ilussioness_backend.models.Appointment;
 import com.keycode.ilussioness_backend.models.AppointmentStatus;
 import com.keycode.ilussioness_backend.models.Customer;
 import com.keycode.ilussioness_backend.models.Order;
+import com.keycode.ilussioness_backend.models.Product;
 import com.keycode.ilussioness_backend.repositories.AppointmentRepository;
 import com.keycode.ilussioness_backend.repositories.CustomerRepository;
 import com.keycode.ilussioness_backend.repositories.OrderRepository;
@@ -228,7 +229,8 @@ class BusinessAuditInstrumentationTest {
 
     @Test
     void appointmentCreateWritesNonSensitiveBusinessMetadata() {
-        AppointmentService service = new AppointmentService(appointmentRepository, auditService);
+        AppointmentService service =
+                new AppointmentService(appointmentRepository, customerRepository, auditService);
         Customer customer = new Customer("Ana", "555");
         customer.setId(UUID.randomUUID());
         Appointment appointment = new Appointment(
@@ -239,6 +241,7 @@ class BusinessAuditInstrumentationTest {
                 AppointmentStatus.SCHEDULED
         );
         appointment.setId(UUID.randomUUID());
+        when(customerRepository.existsById(customer.getId())).thenReturn(true);
         when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenReturn(appointment);
 
         Appointment result = service.createAppointment(appointment);
@@ -261,10 +264,20 @@ class BusinessAuditInstrumentationTest {
 
     @Test
     void appointmentCreateFailureWritesFailureAudit() {
-        AppointmentService service = new AppointmentService(appointmentRepository, auditService);
-        Appointment appointment = new Appointment();
+        AppointmentService service =
+                new AppointmentService(appointmentRepository, customerRepository, auditService);
+        Customer customer = new Customer("Ana", "555");
+        customer.setId(UUID.randomUUID());
+        Appointment appointment = new Appointment(
+                customer,
+                "fittings",
+                LocalDate.now(),
+                LocalTime.of(10, 0),
+                AppointmentStatus.SCHEDULED
+        );
         DataIntegrityViolationException businessException =
-                new DataIntegrityViolationException("missing customer");
+                new DataIntegrityViolationException("constraint");
+        when(customerRepository.existsById(customer.getId())).thenReturn(true);
         when(appointmentRepository.saveAndFlush(appointment)).thenThrow(businessException);
 
         assertThatThrownBy(() -> service.createAppointment(appointment))
@@ -276,6 +289,55 @@ class BusinessAuditInstrumentationTest {
                 null,
                 AuditOutcome.FAILURE,
                 Map.of("REASON", "PERSISTENCE_ERROR")
+        );
+    }
+
+    @Test
+    void appointmentCreateWithMissingCustomerWritesRejectedAudit() {
+        AppointmentService service =
+                new AppointmentService(appointmentRepository, customerRepository, auditService);
+        Customer customer = new Customer("Ana", "555");
+        customer.setId(UUID.randomUUID());
+        Appointment appointment = new Appointment(
+                customer,
+                "fittings",
+                LocalDate.now(),
+                LocalTime.of(10, 0),
+                AppointmentStatus.SCHEDULED
+        );
+        when(customerRepository.existsById(customer.getId())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.createAppointment(appointment))
+                .isInstanceOf(BusinessValidationException.class)
+                .hasMessage("customer_not_found");
+
+        verify(appointmentRepository, never()).saveAndFlush(any(Appointment.class));
+        verify(auditService).recordBusinessFailure(
+                AuditEventType.APPOINTMENT_CREATE_FAILED,
+                AuditEntityType.APPOINTMENT,
+                null,
+                AuditOutcome.REJECTED,
+                Map.of("REASON", "NOT_FOUND")
+        );
+    }
+
+    @Test
+    void appointmentUpdateOfMissingEntityWritesRejectedAudit() {
+        AppointmentService service =
+                new AppointmentService(appointmentRepository, customerRepository, auditService);
+        UUID id = UUID.randomUUID();
+        when(appointmentRepository.findById(id)).thenReturn(Optional.empty());
+
+        Optional<Appointment> result = service.updateAppointment(id, new Appointment());
+
+        assertThat(result).isEmpty();
+        verify(appointmentRepository, never()).saveAndFlush(any(Appointment.class));
+        verify(auditService).recordBusinessFailure(
+                AuditEventType.APPOINTMENT_UPDATE_REJECTED,
+                AuditEntityType.APPOINTMENT,
+                id.toString(),
+                AuditOutcome.REJECTED,
+                Map.of("REASON", "NOT_FOUND")
         );
     }
 
@@ -363,6 +425,68 @@ class BusinessAuditInstrumentationTest {
                 "ORDER-1",
                 AuditOutcome.FAILURE,
                 Map.of("REASON", "PERSISTENCE_ERROR")
+        );
+    }
+
+    @Test
+    void orderCreateWithoutEventTypeWritesRejectedAudit() {
+        OrderService service = new OrderService(orderRepository, auditService);
+        Order order = new Order("ORDER-1", " ", null, List.of());
+
+        assertThatThrownBy(() -> service.createOrder(order))
+                .isInstanceOf(BusinessValidationException.class)
+                .hasMessage("event_type_required");
+
+        verify(orderRepository, never()).saveAndFlush(any(Order.class));
+        verify(auditService).recordBusinessFailure(
+                AuditEventType.ORDER_CREATE_FAILED,
+                AuditEntityType.ORDER,
+                "ORDER-1",
+                AuditOutcome.REJECTED,
+                Map.of("REASON", "REQUIRED")
+        );
+    }
+
+    @Test
+    void orderUpdateOfMissingEntityWritesRejectedAudit() {
+        OrderService service = new OrderService(orderRepository, auditService);
+        when(orderRepository.findById("ORDER-404")).thenReturn(Optional.empty());
+
+        Optional<Order> result = service.updateOrder("ORDER-404", new Order());
+
+        assertThat(result).isEmpty();
+        verify(orderRepository, never()).saveAndFlush(any(Order.class));
+        verify(auditService).recordBusinessFailure(
+                AuditEventType.ORDER_UPDATE_REJECTED,
+                AuditEntityType.ORDER,
+                "ORDER-404",
+                AuditOutcome.REJECTED,
+                Map.of("REASON", "NOT_FOUND")
+        );
+    }
+
+    @Test
+    void orderUpdateRejectsNegativeProductPrice() {
+        OrderService service = new OrderService(orderRepository, auditService);
+        Order existing = new Order("ORDER-1", "SALE", null, List.of());
+        when(orderRepository.findById("ORDER-1")).thenReturn(Optional.of(existing));
+
+        Product negative = new Product() {
+        };
+        negative.setPrice(new java.math.BigDecimal("-1.00"));
+        Order updates = new Order("ORDER-1", "SALE", null, List.of(negative));
+
+        assertThatThrownBy(() -> service.updateOrder("ORDER-1", updates))
+                .isInstanceOf(BusinessValidationException.class)
+                .hasMessage("negative_price");
+
+        verify(orderRepository, never()).saveAndFlush(any(Order.class));
+        verify(auditService).recordBusinessFailure(
+                AuditEventType.ORDER_UPDATE_REJECTED,
+                AuditEntityType.ORDER,
+                "ORDER-1",
+                AuditOutcome.REJECTED,
+                Map.of("REASON", "INVALID_DATA")
         );
     }
 }
