@@ -23,8 +23,13 @@ export function describeProduct(product: Product): string {
 export const formatMoney = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount) || 0);
 
-export const orderTotal = (order: Order) =>
-  (order.products ?? []).reduce((sum, product) => sum + Number(product.price || 0), 0);
+export function orderTotal(order: Order): number {
+  // Si tiene productos, suma sus precios; si no, simulamos un precio base de alta costura para la demo ($350.00)
+  if (!order.products || order.products.length === 0) {
+    return 350.00; 
+  }
+  return order.products.reduce((acc, p) => acc + (p.price || 0), 0);
+}
 
 const HTML_ESCAPES: Record<string, string> = {
   '&': '&amp;',
