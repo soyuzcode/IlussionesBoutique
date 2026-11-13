@@ -4,6 +4,7 @@ import { customersApi } from '../../api/customersApi';
 import { ApiError } from '../../api/httpClient';
 import { formatDate, formatDateOnly, to12h } from '../../utils/dates';
 import AppointmentModal from '../appointments/AppointmentModal';
+import QuoteOrderModal from '../orders/QuoteOrderModal';
 
 interface CustomerModalProps {
   customer: Customer;
@@ -28,8 +29,9 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   
-  // Estado para editar una cita específica del historial
+  // Estados para los sub-modales
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
 
   const cancelEdit = () => {
     setName(customer.name);
@@ -171,9 +173,20 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
             <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
           </div>
         ) : (
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setIsEditing(true)} className="flex-1 py-2.5 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-xl text-xs font-bold cursor-pointer">✏️ Editar Datos</button>
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer">Cerrar</button>
+          <div className="space-y-2">
+            {/* Botón de Cotización / Pedido */}
+            <button
+              type="button"
+              onClick={() => setIsGeneratingQuote(true)}
+              className="w-full py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold cursor-pointer transition flex items-center justify-center gap-1.5"
+            >
+              🧾 Generar Cotización / Pedido
+            </button>
+            
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setIsEditing(true)} className="flex-1 py-2.5 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-xl text-xs font-bold cursor-pointer">✏️ Editar Datos</button>
+              <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer">Cerrar</button>
+            </div>
           </div>
         )}
       </form>
@@ -186,6 +199,18 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
           onClose={() => setEditingAppointment(null)}
           onSaved={async () => {
             setEditingAppointment(null);
+            await onSaved();
+          }}
+        />
+      )}
+
+      {/* Sub-modal para generar cotización / pedido */}
+      {isGeneratingQuote && (
+        <QuoteOrderModal
+          customer={customer}
+          onClose={() => setIsGeneratingQuote(false)}
+          onSaved={async () => {
+            setIsGeneratingQuote(false);
             await onSaved();
           }}
         />
