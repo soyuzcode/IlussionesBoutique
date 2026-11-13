@@ -8,6 +8,7 @@ import type {
   AuditOperation,
 } from './audit';
 import { API_BASE_URL } from './config';
+import { authHeaders } from './authSession';
 
 export interface AuditApiContext {
   entityType: AuditEntityType;
@@ -70,6 +71,10 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
   headers.set('X-Audit-Session-Id', getAuditSessionId());
+  const token = authHeaders().Authorization;
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', token);
+  }
 
   try {
     const response = await fetch(buildUrl(path), {

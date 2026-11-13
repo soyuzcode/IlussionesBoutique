@@ -1,254 +1,357 @@
-# Ilussiones Boutique — Engineering Report
+# Ilussiones Boutique — Informe de ingeniería
 
-**Project:** Ilussiones Boutique (boutique management app)
-**Stack:** Spring Boot 4.1.1 · Java 25 · Maven backend; React 19 frontend; Supabase PostgreSQL
-**Branch:** `feature/security`
-**Date:** 2026-11-11
+**Proyecto:** Ilussiones Boutique (gestión para boutique)
+**Stack:** Spring Boot 4.1.1 · Java 25 · Maven (backend); React 19 + Vite + TypeScript (frontend); PostgreSQL en Supabase
+**Rama:** `feature/security`
+**Fecha:** 2026-11-13
 
-This report covers the database-model/ERD deliverable, the unit-test and
-security-test suites, and the supporting fixes and documentation produced for
-the checkpoint. All figures below come from commands actually executed in this
-environment; where something could not be verified, it is stated explicitly.
-
----
-
-## 1. Objective
-
-Deliver, without changing the existing architecture or behaviour:
-
-1. A documented **database model + ERD** (8-point item).
-2. **Unit tests** for the business logic (6-point item).
-3. **Security tests** for the API surface (6-point item).
-4. A concise **`SECURITY.md`** and this **`report.md`**.
-
-Constraints respected: `ddl-auto=validate` unchanged, no DB constraints/RLS/auth
-disabled or bypassed, tests run through Maven/JUnit only, tests use an isolated
-database (no live Supabase or seeded records), and no credentials/secrets/dumps
-or real customer data were committed.
+Este informe cubre el modelo de base de datos y su ERD, las pruebas unitarias, las
+pruebas de seguridad, la **autenticación real con BCrypt y JWT** incorporada en
+este checkpoint y la documentación de apoyo. Todas las cifras provienen de
+comandos ejecutados en este entorno; cuando algo no se pudo verificar, se indica
+explícitamente.
 
 ---
 
-## 2. Database model & ERD
+## 1. Objetivo
 
-### 2.1 Source and method
+1. Documentar el **modelo de base de datos + ERD**.
+2. Añadir **pruebas unitarias** de la lógica de negocio.
+3. Ampliar las **pruebas de seguridad** de la API.
+4. Implementar **autenticación de backend** con hashing seguro, sin credenciales
+   incrustadas en el frontend y sin almacenar contraseñas en texto plano.
+5. Mantener `SECURITY.md`, `report.md`, el guion de presentación y una
+   `GUIA_PRUEBAS_SEGURIDAD.md` en español.
 
-The model was extracted from the plain-SQL backup
-`docs/database/db_cluster-03-11-2026@16-11-56.backup` (read-only; never modified,
-renamed, deleted, or committed; now git-ignored). `pg_restore`/`psql`/`docker`
-are **not** installed here, so the schema was transcribed by hand into
-documentation — it was **not executed against a live PostgreSQL instance**.
+Restricciones respetadas: `ddl-auto=validate` sin cambios, sin desactivar
+restricciones ni RLS, pruebas con Maven/JUnit sobre una base aislada (sin Supabase
+ni datos sembrados) y sin commitear credenciales, secretos, dumps ni datos reales.
 
-Deliverables in `docs/database/`:
+---
 
-| File | Purpose |
+## 2. Modelo de base de datos y ERD
+
+### 2.1 Fuente y método
+
+El modelo se extrajo del backup SQL plano
+`docs/database/db_cluster-03-11-2026@16-11-56.backup` (solo lectura; nunca se
+modificó, renombró ni commiteó; está en `.gitignore`). En este entorno no hay
+`pg_restore`/`psql`/`docker`, así que el esquema se transcribió a mano: **no se
+ejecutó contra un PostgreSQL vivo**.
+
+Entregables en `docs/database/`:
+
+| Archivo | Propósito |
 | --- | --- |
-| `schema.sql` | Consolidated `public` DDL: enums, tables, PK/FK, checks, indexes, RLS, triggers. Documentation only. |
-| `erd.mmd` | Mermaid ER diagram. |
-| `README.md` | Table/relationship overview, integrity rules, RLS notes, Java↔DB gaps. |
+| `schema.sql` | DDL consolidado del esquema `public`: enums, tablas, PK/FK, checks, índices, RLS, triggers. Solo documentación. |
+| `erd.mmd` | Diagrama ER en Mermaid. |
+| `README.md` | Resumen de tablas, relaciones, integridad, RLS y brechas Java↔BD. |
 
-### 2.2 Model summary
+### 2.2 Resumen del modelo
 
-Three layers plus cross-cutting concerns:
+Cuatro bloques:
 
-1. **Catalogue** — `product` + JOINED subtype tables (`album`, `card`, `cup`,
-   `dress`, `plush`), each keyed by `product_id`.
-2. **Ordering** — normalised aggregate `"order"` (header) + `order_item`,
-   `order_dress`, `payment`. The legacy `orders` / `order_products` tables also
-   exist and are what the `Order` entity maps.
-3. **People & scheduling** — `customer`, `"user"` (staff), `appointment`.
-4. **Cross-cutting** — append-only `audit_log`.
+1. **Catálogo** — `product` y los subtipos JOINED `album`, `card`, `cup`, `dress`,
+   `plush`, todos con `product_id` como PK/FK y borrado en cascada.
+2. **Pedidos** — modelo normalizado `"order"` + `order_item`, `order_dress`,
+   `payment`; además existen las tablas legacy `orders` y `order_products`, que
+   son las que mapea la entidad `Order`.
+3. **Personas y agenda** — `customer`, `"user"` (personal) y `appointment`.
+4. **Transversal** — `audit_log` append-only.
 
 Enums: `appointment_status`, `order_status`, `payment_status`,
 `product_status`, `product_type`, `user_role`.
 
-Key relationships:
+Relaciones clave:
 
 * `appointment.customer_id → customer.id` **ON DELETE CASCADE**
-* `"order".customer_id → customer.id` and `"order".user_id → "user".id` **RESTRICT**
-* `order_item.order_id → "order".id` **CASCADE**, `order_item.product_id → product.id` **RESTRICT**
-* `payment.order_id → "order".id` **CASCADE**, `payment.user_id → "user".id` **SET NULL**
-* subtype tables cascade from `product`
+* `"order".customer_id → customer.id` y `"order".user_id → "user".id` **RESTRICT**
+* `order_item.order_id → "order".id` **CASCADE**; `order_item.product_id → product.id` **RESTRICT**
+* `payment.order_id → "order".id` **CASCADE**; `payment.user_id → "user".id` **SET NULL**
+* Los subtipos hacen cascada desde `product`.
 
-### 2.3 Integrity enforced in the database
+### 2.3 Integridad en la base
 
-* `audit_log` is append-only via `audit_log_no_update` / `audit_log_no_delete` triggers.
-* Check constraints bound every `audit_log` text column (format regexes,
-  enumerated `actor_type`/`entity_type`/`event_source`/`outcome`, JSON-object
-  metadata capped at 4 KB).
-* `order_item` must not reference a `DRESS` product (`trg_prevent_dress_in_order_item`).
-* Non-negative/positive checks on `price`, `stock`, `total_amount`,
-  `agreed_price`, `unit_price`, `quantity`, `payment.amount`.
-* `customer.status` ∈ {`ACTIVO`, `FINALIZADO`} (default `ACTIVO`).
+* `audit_log` append-only mediante `audit_log_no_update` y `audit_log_no_delete`.
+* Checks que acotan columnas de texto de `audit_log` (regex, enumeraciones, JSON
+  de metadatos ≤ 4 KB).
+* `order_item` no puede referenciar un producto `DRESS`
+  (`trg_prevent_dress_in_order_item`).
+* Checks de no negatividad/positividad en precios, stock, cantidades y pagos.
+* `customer.status ∈ {ACTIVO, FINALIZADO}` (por defecto `ACTIVO`).
 
 ### 2.4 Row-Level Security
 
-RLS is **enabled on all 16 `public` tables**, but the backup contains **no
-`CREATE POLICY` statements**. The Spring backend connects with a privileged role
-that bypasses RLS, which is why the API works; any direct Supabase (anon /
-authenticated) access will need explicit policies.
+RLS está **habilitado en las 16 tablas** `public`, pero el backup **no contiene
+`CREATE POLICY`**. El backend conecta con un rol privilegiado que lo evita; por
+eso la API funciona. Cualquier acceso directo con `anon`/`authenticated` necesita
+políticas explícitas.
 
-### 2.5 Java model vs. database (documented gaps, not "fixed")
+### 2.5 Brechas entre el modelo Java y la base (documentadas, no "arregladas")
 
-| Gap | Detail |
+| Brecha | Detalle |
 | --- | --- |
-| Subtypes not entities | `Product` is `@Inheritance(JOINED)` but `Album`/`Card`/`Cup`/`Dress`/`Plush` are not `@Entity`, so subtype tables are unreachable through JPA. |
-| `Product` columns | Maps only `id`, `price`, `photo_url`, `materials`, `status`. `type`, `name`, `stock`, `created_at`, `updated_at` are unmapped. |
-| `Customer.status` | Present in DB (default `ACTIVO`), absent from the `Customer` entity. |
-| Two order models | `Order` maps legacy `orders`/`order_products`; normalised `"order"`, `order_item`, `order_dress`, `payment` are unmapped. |
-| `User` not an entity | `"user"` has no JPA mapping. |
-| `password_hash` format | The single stored value is **not** a bcrypt/argon2 modular hash; staff password verification is unverified (value never printed). |
+| Subtipos no son entidades | `Product` usa `@Inheritance(JOINED)`, pero `Album`/`Card`/`Cup`/`Dress`/`Plush` no son `@Entity`. |
+| Columnas sin mapear | `Product` solo mapea `id`, `price`, `photo_url`, `materials`, `status`; faltan `type`, `name`, `stock`, timestamps. |
+| `Customer.status` | Existe en la BD, no en la entidad. |
+| Dos modelos de pedido | `Order` usa las tablas legacy; el modelo normalizado no está mapeado. |
+| `User` no es entidad | `"user"` no tiene mapeo JPA. |
+| `password_hash` legado | El único valor almacenado no es bcrypt/argon2 y no se usa para autenticar (nunca se imprime). |
 
-These are intentionally left as documentation rather than silently remodelled,
-to avoid changing behaviour.
-
----
-
-## 3. Unit tests (business logic)
-
-The business tests use an isolated H2 database (`test` profile), so they need
-neither Supabase nor seeded data. Key suites:
-
-| Suite | Type | Focus |
-| --- | --- | --- |
-| `BusinessRepositoryJpaTest` | `@DataJpaTest` | Repository CRUD, lookups, FK behaviour |
-| `BusinessServiceRulesTest` | Service unit/integration | Validation rules, partial updates, not-found, delete, metadata |
-| `PersistenceAcrossRestartTest` | Two programmatic Spring contexts | Data survives a restart against a file-backed H2 |
-| `BusinessAuditInstrumentationTest` | Service + audit | Success/failure/rejection events are recorded |
-| `BusinessAuditTransactionIntegrationTest` | Integration | Rollback semantics and genuine persistence failures |
-| `IlussionessBackendApplicationTests` | Context | Application context loads |
-
-Highlights of the rules exercised:
-
-* Customer create/update/delete, name/phone trimming, blank/over-long rejection,
-  merge-on-partial-PUT (unspecified fields preserved).
-* Appointment requires an existing customer and date/time; unknown customer is
-  rejected (`customer_not_found`); status defaults to `SCHEDULED`.
-* Order requires `orderId` and `eventType`; negative prices rejected; partial
-  update keeps existing values.
-* Delete returns `false` → controller returns `404`; genuine persistence failure
-  surfaces (e.g. 300-char `googleEventId` exceeding `varchar(255)`).
-
-**Result:** `.\mvnw.cmd test` → **109 tests, 0 failures, 0 errors** (BUILD SUCCESS).
+Se dejaron como deuda documentada para no cambiar el comportamiento.
 
 ---
 
-## 4. Security tests (API surface)
+## 3. Autenticación implementada
 
-`BusinessApiSecurityTest` is an HTTP-level MockMvc suite. Because
-`SecurityConfig` uses `anyRequest().permitAll()`, these tests document the
-reachable surface and prove hostile input is rejected safely.
+### 3.1 Situación de partida
 
-| # | Scenario | Expected |
-| --- | --- | --- |
-| 1 | SQLi payload in JSON body (`'; DROP TABLE customer;--`) | `200`, stored inert, table intact |
-| 2 | SQLi in UUID path variable | `400 invalid_request` / `malformed_parameter` |
-| 3 | SQLi in order id path | `404`, no rows touched |
-| 4 | Malformed UUID path | `400 malformed_parameter` |
-| 5 | Malformed JSON body | `400 malformed_payload` |
-| 6 | Blank / missing / oversized customer name | `400 validation_failed` with field detail |
-| 7 | Appointment with unknown customer | `400 customer_not_found` |
-| 8 | Appointment missing required fields | `400 validation_failed` |
-| 9 | Order without `eventType` | `400 validation_failed` |
-| 10 | Unknown ids on GET/DELETE/PUT | `404` |
-| 11 | Full + partial customer PUT | `200` |
-| 12 | Partial appointment/order PUT | `200` (regression coverage) |
-| 13 | Error bodies do not leak internals | no `Exception`, Spring/Hibernate names, SQL |
-| 14 | Unauthenticated request | allowed (pins documented `permitAll()` posture) |
+No existía autenticación de backend: `SecurityConfig` usaba
+`anyRequest().permitAll()` con CSRF deshabilitado, y `Login.tsx` validaba contra
+un arreglo `MOCK_USERS` con la contraseña `123456` en texto plano, además de un
+botón de Google que concedía acceso sin validar nada. `User` era una clase
+abstracta sin mapeo JPA.
 
-### 4.1 Live `curl` confirmation
+### 3.2 Solución (caso B: cuenta demo en el backend)
 
-A running instance (H2, profile `httptest`, port 18080) was exercised with
-`curl`. Observed, unauthenticated:
+* `AuthProperties` (`app.auth.*`) permite configurar por variables de entorno el
+  secreto JWT, la vida del token y la cuenta demo
+  (`APP_DEMO_AUTH_EMAIL`, `APP_DEMO_AUTH_PASSWORD`, …). Los valores por defecto
+  son solo para desarrollo y están documentados.
+* `DemoAccountService` hashea la contraseña configurada con **BCrypt** al
+  arrancar, conserva solo el hash en memoria y verifica con
+  `PasswordEncoder.matches()`. Correo desconocido y contraseña incorrecta
+  devuelven el mismo `401 invalid_credentials`; la verificación se ejecuta en
+  ambos casos y el correo se compara en tiempo constante.
+* `JwtTokenService` emite JWT HS256 firmados con el secreto configurado
+  (mínimo 32 bytes, validado al arrancar) con `sub`, `name`, `role`, `iat` y
+  `exp`. La vida por defecto es 60 minutos.
+* `AuthController` expone `POST /api/auth/login`, valida el cuerpo con Bean
+  Validation y responde `200` con `{token, tokenType, expiresIn, user}` o `401`
+  genérico. Añade `Cache-Control: no-store` y no devuelve contraseña ni hash.
+* `SecurityConfig` valida el Bearer con el `JwtDecoder` de Spring Security.
+  Público: login y `POST /api/audit/events`. Protegido: el resto de `/api/**`.
+  La API es sin estado (`SessionCreationPolicy.STATELESS`), sin formularios ni
+  HTTP Basic.
+* Frontend: se eliminó `MOCK_USERS` y el acceso simulado con Google. `authApi`
+  llama al backend; `authSession` guarda token y usuario en `sessionStorage`;
+  `httpClient` añade `Authorization: Bearer`; `App` restaura la sesión y la borra
+  al cerrar sesión; la tabla de auditoría también envía el token. El frontend
+  nunca decide si unas credenciales son válidas ni almacena hashes.
 
-* `GET /api/customer` → `200`; `POST` valid customer → `200`.
-* Blank name → `400` (`validation_failed`, `fields.name`); missing phone → `400`
-  (`fields.phone`); oversized name → `400` "name must be at most 120 characters".
-* Malformed UUID → `400 invalid_request` / `malformed_parameter`; unknown UUID → `404`.
-* Appointment unknown customer → `400 customer_not_found`; missing fields → `400`.
-* Order missing `eventType` → `400`.
-* SQLi body stored as inert data (visible unchanged via `GET`).
-* Malformed JSON → `400 malformed_payload`.
-* Order POST/GET → `200`; DELETE → `204`; subsequent GET → `404`.
-* Audit `UI_SECTION_VIEWED` → `202`; backend-only business event sent by a client
-  → `400 event_type_not_allowed`.
+### 3.3 Decisiones y límites
 
-### 4.2 Bug found and fixed
+* Se reutilizó la dependencia `spring-security-oauth2-jose` ya presente; **no se
+  añadieron librerías nuevas**. No se inventó un segundo formato de token.
+* No se persisten usuarios nuevos: la cuenta demo vive en configuración. Si se
+  añadiera persistencia, toda contraseña nueva debe pasar por el mismo
+  `PasswordEncoder`.
+* El `role` viaja en el token, pero todavía no se aplican reglas por rol.
+* El "olvidé mi contraseña" del frontend sigue siendo un mensaje de UI sin envío
+  real de correo; no concede acceso.
+* CSRF sigue deshabilitado a propósito porque no hay cookies de sesión. CORS
+  permanece abierto (`@CrossOrigin(origins = "*")`) como deuda a restringir.
 
-Live testing surfaced a real contract bug: the frontend sends **partial** PUT
-bodies (e.g. orders send only `{eventType, deliveryDate}`; appointments send only
-`{reason, appointmentDate, appointmentTime}`), but the controllers had `@Valid`
-on the PUT body, so a partial payload failed validation with `400`. Fix:
+### 3.4 Incidencias encontradas y corregidas
 
-* Removed `@Valid` from all three PUT endpoints.
-* Services merge non-null fields into the stored entity, then validate the
-  merged result (`CustomerService`, `AppointmentService`, `OrderService`).
-* A separate bug in `AuditEventType.ORDER_UPDATED` (missing `PRODUCT_COUNT`
-  metadata key) was also fixed — otherwise a successful order update was logged
-  as a rejected event.
-
-**Re-verified live after the fix:** partial `PUT /api/order/{id}` `{eventType}` →
-`200`; partial `PUT /api/appointment/{id}` `{reason}` → `200`; partial
-`PUT /api/customer/{id}` `{name}` → `200` with phone preserved; cleanup DELETEs →
-`204`.
+1. **Enlace de propiedades:** `app.auth.jwt.secret` no se enlazaba con el campo
+   `jwtSecret` (la forma canónica es `jwt-secret`), lo que hacía fallar el
+   contexto de Spring. Se corrigió en `application.properties`, en los perfiles
+   de prueba y en `SecurityConfig`.
+2. **Bypass de autenticación en el frontend:** el botón de Google concedía sesión
+   sin backend. Se eliminó junto con `MOCK_USERS`.
+3. **Auditoría sin token:** `AuditLogTable` usaba `fetch` directo; al proteger
+   `/api/**` habría recibido `401`. Ahora envía el Bearer.
 
 ---
 
-## 5. Rubric compliance (estimate)
+## 4. Pruebas unitarias y de integración
 
-> **This matrix is an estimate.** It reflects what was implemented and verified
-> in this working tree; it is not an official grade.
+Las pruebas usan H2 en memoria en modo PostgreSQL con `create-drop` (perfil
+`test`), sin Supabase ni datos sembrados. Suites y conteos verificados:
 
-| Rubric item | Points | Status | Evidence |
+| Suite | Tipo | Enfoque | Pruebas |
 | --- | --- | --- | --- |
-| Database model + ERD | 8 | Done (transcribed, not live-verified) | `docs/database/schema.sql`, `erd.mmd`, `README.md` |
-| Unit tests | 6 | Done | 5 business suites; full run 109 tests / 0 failures |
-| Security tests | 6 | Done | `BusinessApiSecurityTest` (18 tests) + live `curl` |
-| `SECURITY.md` | — | Done | `SECURITY.md` |
-| `report.md` | — | Done | this file |
+| `BusinessRepositoryJpaTest` | `@DataJpaTest` | CRUD, búsquedas, FK | 9 |
+| `BusinessServiceRulesTest` | Servicio/integración | Validación, PUT parcial, 404, borrado | 19 |
+| `PersistenceAcrossRestartTest` | Dos contextos Spring | Durabilidad entre reinicios | 1 |
+| `BusinessAuditInstrumentationTest` | Servicio + auditoría | Eventos de éxito/rechazo | 20 |
+| `BusinessAuditTransactionIntegrationTest` | Integración | Rollback y fallos reales de persistencia | 4 |
+| `AuditEventValidatorTest` | Unidad | Lista blanca y metadatos | 13 |
+| `AuditServicePersistenceTest` | Persistencia | Registro y consultas de auditoría | 8 |
+| `AuditWebFilterTest` | Web | Tamaño, tasa y sanitización | 9 |
+| `AuditIngestionIntegrationTest` | HTTP | Ingesta válida/rechazada | 7 |
+| `AuthApiTest` | HTTP | Login, tokens, 415 y acceso | 15 |
+| `DemoAccountServiceTest` | Unidad | BCrypt, `matches()`, configuración | 6 |
+| `ApiExceptionHandlerTest` | Unidad | 500/503/409 sin fugas | 3 |
+| `BusinessApiSecurityTest` | HTTP | Inyección, validación, auth | 21 |
+| `IlussionessBackendApplicationTests` | Contexto | Carga de la aplicación | 1 |
+| **Total** | | | **136** |
 
-Caveats: the ERD/schema are a faithful transcription of the backup, not a
-verified restore (no PostgreSQL client available). Authentication is not
-implemented (documented limitation). RLS has no policies.
+**Resultado real:** `.\mvnw.cmd test` → **136 pruebas, 0 fallos, 0 errores,
+0 omitidas — BUILD SUCCESS**. Antes de este checkpoint eran 109; se añadieron 27
+(15 de autenticación HTTP, 6 de la cuenta demo, 3 del manejador de errores y 4 de
+la frontera de autenticación en la suite de seguridad, menos la prueba que fijaba
+el antiguo `permitAll()`).
+
+Casos cubiertos por `AuthApiTest`: login correcto con token y usuario público;
+contraseña incorrecta; correo inexistente con respuesta idéntica a contraseña
+incorrecta; credenciales vacías; correo en blanco o inválido; JSON malformado;
+`Content-Type` no soportado; SQLi en contraseña y en correo; endpoint protegido
+sin token, con token inválido y con token manipulado; acceso autorizado a negocio
+y a lectura de auditoría; credenciales inválidas que no conceden acceso; y
+ausencia de contraseña, hash o internos en las respuestas.
 
 ---
 
-## 6. Limitations & recommendations
+## 5. Pruebas de seguridad HTTP
 
-1. **No authentication/authorization** — `anyRequest().permitAll()`, CSRF
-   disabled. Add Supabase JWT verification and authenticated matchers.
-2. **RLS enabled, no policies** — define policies before exposing Supabase
-   directly to `anon`/`authenticated`.
-3. **Non-standard staff password hash** — migrate to bcrypt/argon2.
-4. **Schema drift** — align the JPA entities with the verified schema (subtype
-   entities, `Customer.status`, normalised order tables) in a dedicated change.
-5. **No live-DB restore verification** — install a PostgreSQL client to validate
-   `schema.sql` against a scratch database.
+`BusinessApiSecurityTest` corre autenticado con `@WithMockUser` para concentrarse
+en la entrada hostil, y tiene pruebas anónimas específicas:
+
+| # | Escenario | Resultado esperado |
+| --- | --- | --- |
+| 1 | SQLi en cuerpo JSON (`'; DROP TABLE customer;--`) | `200`, dato inerte, tabla intacta |
+| 2 | SQLi en path UUID | `400 invalid_request` / `malformed_parameter` |
+| 3 | SQLi en id de pedido | `404`, sin filas afectadas |
+| 4 | UUID malformado | `400 malformed_parameter` |
+| 5 | JSON malformado | `400 malformed_payload` |
+| 6 | Nombre de cliente vacío/faltante/excedido | `400 validation_failed` con campo |
+| 7 | Cita con cliente inexistente | `400 customer_not_found` |
+| 8 | Cita sin campos obligatorios | `400 validation_failed` |
+| 9 | Pedido sin `eventType` | `400 validation_failed` |
+| 10 | GET/DELETE/PUT con id inexistente | `404` |
+| 11 | PUT completo y parcial de cliente | `200` |
+| 12 | PUT parcial de cita y pedido | `200` |
+| 13 | Errores sin filtrar internos | sin `Exception`, Spring, Hibernate ni SQL |
+| 14 | Petición anónima a negocio | `401 unauthorized` |
+| 15 | Token Bearer inválido | `401 unauthorized` |
+| 16 | SQLi en login | `401 invalid_credentials` |
+| 17 | Petición autenticada | `200` |
+
+### 5.1 Verificación en vivo con `curl`
+
+Se levantó la aplicación real con el perfil `httptest` (H2 aislado, puerto 18080)
+y se ejecutaron las peticiones de la guía. Resultados observados:
+
+* Login correcto → `200`, `tokenType: Bearer`, `expiresIn: 3600` y usuario
+  público; sin contraseña ni hash en el cuerpo.
+* Contraseña incorrecta y correo inexistente → `401` con el **mismo** cuerpo
+  `{"error":"invalid_credentials"}`.
+* Credenciales vacías → `400 validation_failed` con `fields.email` y
+  `fields.password`.
+* JSON malformado → `400 invalid_request` / `malformed_payload`.
+* SQLi como contraseña → `401 invalid_credentials`.
+* `GET /api/customer` sin token → `401 unauthorized`.
+* Token inválido → `401 unauthorized`.
+* Token válido → `200` con la lista de clientes.
+* SQLi codificado en path UUID → `400 invalid_request` /
+  `malformed_parameter`.
+* Crear cliente con token → `200`; borrado posterior → `204` (limpieza).
+
+### 5.2 Bug de contrato ya corregido (se mantiene)
+
+El frontend envía PUT parciales; quitar `@Valid` de los PUT y hacer
+merge-then-validate en los servicios evita el `400` espurio y conserva las reglas
+de negocio. También se corrigió `AuditEventType.ORDER_UPDATED`, que no declaraba
+la clave `PRODUCT_COUNT` que su propio evento exigía.
 
 ---
 
-## 7. How to reproduce
+## 6. Verificación del frontend
+
+* `npm run build` (`tsc -b && vite build`) → **correcto**, 42 módulos, sin errores.
+* `npm run lint` → **4 errores preexistentes** de `react-hooks` en `App.tsx` y
+  `App_fixed.tsx` (setState dentro de un efecto y `Date.now()` en render). No se
+  introdujeron en este cambio y no se tocaron para no alterar comportamiento
+  fuera del alcance de autenticación.
+* Búsqueda de credenciales: no quedan `MOCK_USERS`, `123456`, comparaciones de
+  contraseña ni `admin@ilussiones.com` en `Frontend/src`.
+
+---
+
+## 7. Cumplimiento del rubric (estimación)
+
+> **Esta matriz es una estimación** de lo implementado y verificado en este árbol
+> de trabajo; no es una calificación oficial.
+
+| Ítem | Puntos | Estado | Evidencia |
+| --- | --- | --- | --- |
+| Modelo de BD + ERD | 8 | Hecho (transcrito, no verificado en vivo) | `docs/database/` |
+| Pruebas unitarias | 6 | Hecho | 136 pruebas / 0 fallos |
+| Pruebas de seguridad | 6 | Hecho | `BusinessApiSecurityTest` + `AuthApiTest` + `curl` |
+| Autenticación y hashing | — | Hecho (cuenta demo) | `AuthController`, `DemoAccountService`, JWT |
+| `SECURITY.md` / `report.md` | — | Hecho | este informe y `SECURITY.md` |
+| Guía de pruebas | — | Hecho | `GUIA_PRUEBAS_SEGURIDAD.md` |
+
+---
+
+## 8. Limitaciones y recomendaciones
+
+1. **Cuenta demo única** — no es un sistema de identidad. Migrar a Supabase Auth
+   u OIDC y validar sus JWT.
+2. **Sin autorización por rol** — añadir matchers `hasRole` y pruebas por rol.
+3. **Sin rate limiting de login** — añadir límite por IP/cuenta.
+4. **Sin revocación/refresh** — tokens de 60 minutos; valorar rotación.
+5. **CORS abierto** — restringirlo al dominio del frontend.
+6. **RLS sin políticas** — definirlas antes del acceso directo desde Supabase.
+7. **Hash legado en `public."user"`** — migrar a bcrypt/argon2 si se usa esa
+   tabla para login.
+8. **Deriva de esquema** — alinear entidades JPA con el esquema verificado
+   (subtipos, `Customer.status`, pedidos normalizados).
+9. **Restauración no verificada** — instalar un cliente PostgreSQL para validar
+   `schema.sql` contra una base de prueba.
+
+---
+
+## 9. Cómo reproducir
 
 ```powershell
-# Full test suite (isolated H2, no Supabase needed)
+# Suite completa (H2 aislada, no necesita Supabase)
 cd Backend
-.\mvnw.cmd test          # 109 tests, 0 failures
+.\mvnw.cmd test          # 136 pruebas, 0 fallos, 0 errores
 
-# Optional live HTTP run (H2, port 18080)
+# Instancia local para la guía de seguridad (H2, puerto 18080)
 .\mvnw.cmd spring-boot:test-run "-Dspring-boot.run.profiles=httptest"
-# then curl http://127.0.0.1:18080/api/customer
+
+# Frontend
+cd ..\Frontend
+npm install
+npm run build
+npm run dev
 ```
+
+Credenciales de la cuenta demo en `httptest`: `admin@ilussiones.com` /
+`DemoPass123!`. En el perfil normal se leen de `APP_DEMO_AUTH_EMAIL` y
+`APP_DEMO_AUTH_PASSWORD` (con valores de desarrollo si no se definen).
 
 ---
 
-## 8. Files added / changed (high level)
+## 10. Archivos añadidos y modificados (alto nivel)
 
-**New:** `docs/database/{schema.sql,erd.mmd,README.md}`,
-`ApiExceptionHandler`, `BusinessValidationException`,
-`BusinessRepositoryJpaTest`, `BusinessServiceRulesTest`,
-`BusinessApiSecurityTest`, `PersistenceAcrossRestartTest`,
-`application-httptest.properties`, `SECURITY.md`, `report.md`.
+**Nuevos (backend):** `auth/{AuthProperties, AuthenticatedUser, DemoAccountService,
+JwtTokenService, LoginRequest, LoginResponse, AuthController}.java`,
+`auth/DemoAccountServiceTest.java`, `auth/AuthApiTest.java`,
+`controllers/ApiExceptionHandlerTest.java`.
 
-**Changed:** `Customer`/`Appointment`/`Order`/`Product` models (validation),
-`CustomerService`/`AppointmentService`/`OrderService` (CRUD + validation +
-auditing), the three controllers (partial PUT), `AuditEventType`
-(`ORDER_UPDATED` metadata), existing audit tests, `.gitignore` (dump rules).
+**Modificados (backend):** `config/SecurityConfig.java` (JWT, BCrypt, matchers),
+`controllers/ApiExceptionHandler.java` (login incluido),
+`src/main/resources/application.properties` y perfiles de prueba (propiedades de
+autenticación), `controllers/BusinessApiSecurityTest.java` (frontera de
+autenticación), `audit/api/AuditIngestionIntegrationTest.java` (lectura de
+auditoría autenticada).
+
+**Nuevos (frontend):** `api/authApi.ts`, `lib/authSession.ts`.
+
+**Modificados (frontend):** `components/common/Login.tsx` (sin `MOCK_USERS` ni
+Google simulado; llama al backend), `api/httpClient.ts` (Bearer),
+`components/tables/AuditLogTable.tsx` y `lib/api.ts` (Bearer), `App.tsx`
+(sesión persistida y cierre que limpia el token), `types/index.ts` (`role`).
+
+**Nuevos (docs):** `GUIA_PRUEBAS_SEGURIDAD.md`.
+
+**Actualizados (docs):** `SECURITY.md`, `report.md`, `presentation_script.md`.
+
+**Previos conservados:** `docs/database/{schema.sql,erd.mmd,README.md}`,
+validación/auditoría, pruebas de repositorio/servicio/persistencia y correcciones
+de PUT parcial.

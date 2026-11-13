@@ -1,5 +1,6 @@
 package com.keycode.ilussioness_backend.controllers;
 
+import com.keycode.ilussioness_backend.auth.AuthController;
 import com.keycode.ilussioness_backend.services.BusinessValidationException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -27,6 +29,7 @@ import java.util.Map;
  * only so column/constraint details are not copied into client responses.</p>
  */
 @RestControllerAdvice(assignableTypes = {
+        AuthController.class,
         CustomerController.class,
         AppointmentController.class,
         OrderController.class
@@ -86,6 +89,15 @@ public class ApiExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of(
                 "error", "invalid_request",
                 "reason", "malformed_payload"
+        ));
+    }
+
+    /** A body sent with a Content-Type the endpoint does not accept. */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<Map<String, String>> unsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(Map.of(
+                "error", "unsupported_media_type"
         ));
     }
 
