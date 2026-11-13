@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 
+import { authApi } from '../../api/authApi';
+import { ApiError } from '../../api/httpClient';
+import { saveSession } from '../../lib/authSession';
 import { auditEvent } from '../../lib/audit';
 import logo from '../../assets/logo.jpg';
 import type { AuthUser } from '../../types';
@@ -9,22 +12,26 @@ interface LoginProps {
   onLoginSuccess?: (user: AuthUser) => void;
 }
 
-const MOCK_USERS = [{ email: 'admin@ilussiones.com', password: '123456', name: 'Admin' }];
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
-const ERROR_MESSAGE = 'User or password wrong';
+const INVALID_CREDENTIALS_MESSAGE = 'User or password wrong';
+const UNAVAILABLE_MESSAGE =
+  'Could not reach the server. Check your connection and try again.';
 
 export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (submitting) return;
 
     auditEvent({
       eventType: 'UI_LOGIN_SUBMITTED',
@@ -32,32 +39,30 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
       metadata: { AUTH_METHOD: 'PASSWORD' },
     });
 
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (!cleanEmail || !password.trim() || !EMAIL_REGEX.test(cleanEmail)) {
-      setError(ERROR_MESSAGE);
-      return;
-    }
-
-    const user = MOCK_USERS.find((u) => u.email === cleanEmail && u.password === password);
-    if (!user) {
-      setError(ERROR_MESSAGE);
-      return;
-    }
-
     setError('');
-    onLoginSuccess?.({ name: user.name, email: user.email });
-  };
 
-  const handleGoogleLogin = () => {
-    auditEvent({
-      eventType: 'UI_LOGIN_SUBMITTED',
-      entityType: 'AUTH',
-      metadata: { AUTH_METHOD: 'GOOGLE' },
-    });
+    if (!email.trim() || !password) {
+      setError(INVALID_CREDENTIALS_MESSAGE);
+      return;
+    }
 
-    // Simulado: el login real con Google requiere autenticación en el backend (p. ej. Supabase Auth)
-    onLoginSuccess?.({ name: 'Google User', email: '' });
+    setSubmitting(true);
+    try {
+      // El backend valida las credenciales y emite el token. El frontend no
+      // compara contraseñas ni decide por su cuenta si el acceso es válido.
+      const result = await authApi.login(email.trim().toLowerCase(), password);
+      saveSession(result.token, result.user);
+      onLoginSuccess?.(result.user);
+    } catch (err) {
+      // Mismo mensaje para usuario inexistente y contraseña incorrecta.
+      const isRejectedCredentials =
+        err instanceof ApiError && (err.status === 400 || err.status === 401);
+      setError(
+        isRejectedCredentials ? INVALID_CREDENTIALS_MESSAGE : UNAVAILABLE_MESSAGE,
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReset = (e: FormEvent<HTMLFormElement>) => {
@@ -133,40 +138,14 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm rounded-full shadow-md hover:shadow-lg transition active:scale-98 cursor-pointer mt-2"
+            disabled={submitting}
+            className="w-full py-3.5 bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300 disabled:cursor-not-allowed text-white font-bold text-xs sm:text-sm rounded-full shadow-md hover:shadow-lg transition active:scale-98 cursor-pointer mt-2"
           >
-            Sign In
+            {submitting ? 'Signing In…' : 'Sign In'}
           </button>
         </form>
 
         <div className="text-center space-y-4 pt-2">
-          <p className="text-xs text-gray-400 font-medium">or continue with</p>
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="w-full py-3 border border-gray-200 rounded-xl font-semibold text-xs sm:text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            Google
-          </button>
-
           <button
             type="button"
             onClick={() => setShowForgot(true)}

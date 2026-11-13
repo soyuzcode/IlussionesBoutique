@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '../../lib/config';
+import { authHeaders } from '../../lib/authSession';
 
 type AuditLog = {
   id: string;
@@ -88,6 +89,7 @@ export function AuditLogTable() {
         method: 'GET',
         headers: {
           Accept: 'application/json',
+          ...authHeaders(),
         },
       });
       if (!res.ok) {
@@ -113,6 +115,7 @@ export function AuditLogTable() {
           method: 'GET',
           headers: {
             Accept: 'application/json',
+            ...authHeaders(),
           },
         });
         if (!res.ok) {

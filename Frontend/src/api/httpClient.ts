@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../lib/config';
+import { authHeaders } from '../lib/authSession';
 
 export class ApiError extends Error {
   status: number;
@@ -14,7 +15,11 @@ export class ApiError extends Error {
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      ...options.headers,
+    },
   });
 
   if (!response.ok) {

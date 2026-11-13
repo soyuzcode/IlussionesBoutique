@@ -10,6 +10,7 @@ import CustomersTab from './components/customers/CustomersTab';
 import OrdersTab from './components/orders/OrdersTab';
 
 import { auditEvent, sanitiseErrorName } from './lib/audit';
+import { clearSession, getAuthToken, getStoredUser } from './lib/authSession';
 import {
   appointmentsApi,
   appointmentToCita,
@@ -50,7 +51,9 @@ const SECTION_BY_TAB: Record<Tab, string> = {
 };
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
+    getAuthToken() ? getStoredUser() : null,
+  );
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [appointmentView, setAppointmentView] = useState<'today' | 'week'>('today');
 
@@ -152,6 +155,7 @@ export function App() {
       eventType: 'UI_LOGOUT_CLICKED',
       entityType: 'AUTH',
     });
+    clearSession();
     setCurrentUser(null);
     setActiveTab('home');
   };

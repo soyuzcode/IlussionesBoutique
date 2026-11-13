@@ -13,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -32,15 +34,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * HTTP-level security and input-validation checks for the business API.
  *
- * <p>The application currently runs with {@code anyRequest().permitAll()} and
- * CSRF disabled, so these tests document the reachable surface and prove that
- * malformed / hostile input is rejected without leaking internals or corrupting
- * data.</p>
+ * <p>Business endpoints now require authentication. Most tests run with a mock
+ * authenticated principal because they focus on hostile input; the dedicated
+ * anonymous tests below pin the {@code 401} rejection and the real JWT flow is
+ * covered by {@code AuthApiTest}.</p>
  */
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:business-api-security;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@WithMockUser(username = "admin@ilussiones.com", roles = "ADMIN")
 class BusinessApiSecurityTest {
 
     @Autowired
@@ -302,10 +305,51 @@ class BusinessApiSecurityTest {
                 .doesNotContain("insert ");
     }
 
+    // ------------------------------------------------------------------
+    // Authentication boundary
+    // ------------------------------------------------------------------
+
     @Test
-    void requestsAreAllowedWithoutAuthenticationDocumentingCurrentConfig() throws Exception {
-        // SecurityConfig uses anyRequest().permitAll(); this test pins that
-        // documented behaviour so a future change is a deliberate one.
+    @WithAnonymousUser
+    void businessEndpointsRejectAnonymousRequests() throws Exception {
+        mockMvc.perform(get("/api/customer"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("unauthorized"));
+
+        mockMvc.perform(get("/api/customer/{id}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Ana", "phone": "555"}
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void invalidBearerTokenIsRejected() throws Exception {
+        mockMvc.perform(get("/api/customer")
+                        .header("Authorization", "Bearer not-a-valid-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("unauthorized"));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void sqlInjectionInLoginDoesNotGrantAccess() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "admin@ilussiones.com", "password": "' OR '1'='1"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("invalid_credentials"));
+    }
+
+    @Test
+    void authenticatedRequestsReachTheBusinessApi() throws Exception {
         mockMvc.perform(get("/api/customer"))
                 .andExpect(status().isOk());
     }
