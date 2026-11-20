@@ -5,6 +5,7 @@ import ResetPassword from './components/common/ResetPassword';
 import InventoryTab from './components/inventory/InventoryTab';
 import UpcomingAppointmentsAlert from './components/reminders/UpcomingAppointmentsAlert';
 import CalendarSettings from './components/calendar/CalendarSettings';
+import ThemeSettings from './components/settings/ThemeSettings';
 import AuditLogTable from './components/tables/AuditLogTable';
 import CitaCard from './components/common/CitaCard';
 import NewClientModal from './components/common/NewClientModel';
@@ -42,7 +43,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: 'customers', label: 'Clientes', icon: '👥' },
   { id: 'orders', label: 'Pedidos', icon: '🧵' },
   { id: 'inventory', label: 'Inventario', icon: '📦' },
-  { id: 'settings', label: 'Calendario', icon: '🔗' },
+  { id: 'settings', label: 'Ajustes', icon: '⚙️' },
   { id: 'audit', label: 'Auditoría', icon: '🧾' },
 ];
 
@@ -469,7 +470,12 @@ export function App() {
 
           {activeTab === 'inventory' && <InventoryTab />}
 
-          {activeTab === 'settings' && <CalendarSettings />}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <ThemeSettings />
+              <CalendarSettings />
+            </div>
+          )}
 
           {activeTab === 'audit' && <AuditLogTable />}
         </main>

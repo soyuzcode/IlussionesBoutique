@@ -4,8 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ilussiones Boutique</title>
+    <!-- Applies the saved theme before first paint (keep in sync with src/lib/theme.ts). -->
+    <script>
+      (function () {
+        try {
+          var p = JSON.parse(localStorage.getItem('ilussiones-theme') || '{}');
+          var mode = p.mode === 'light' || p.mode === 'dark' ? p.mode
+            : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          var root = document.documentElement;
+          root.dataset.mode = mode;
+          root.dataset.accent = ['pink', 'violet', 'emerald', 'blue'].indexOf(p.accent) >= 0 ? p.accent : 'pink';
+          root.dataset.contrast = p.highContrast ? 'high' : 'normal';
+          root.style.colorScheme = mode;
+        } catch (e) {}
+      })();
+    </script>
     <!-- Script CDN de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // `pink` is the accent palette and `gray` the neutral palette; both follow the active theme.
+      var scale = function (name) {
+        var out = {};
+        [50, 100, 200, 300, 400, 500, 600, 700, 800, 900].forEach(function (s) {
+          out[s] = 'rgb(var(--' + name + '-' + s + ') / <alpha-value>)';
+        });
+        return out;
+      };
+      tailwind.config = { theme: { extend: { colors: { pink: scale('accent'), gray: scale('gray') } } } };
+    </script>
   </head>
   <body>
     <div id="root"></div>
