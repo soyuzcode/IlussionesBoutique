@@ -6,6 +6,7 @@ import { formatDate, formatDateOnly, to12h } from '../../utils/dates';
 import AppointmentModal from '../appointments/AppointmentModal';
 import NewOrderModal from '../orders/NewOrderModal';
 import { ordersApi } from '../../api/ordersApi';
+import { printQuote } from '../../utils/quote';
 
 interface CustomerModalProps {
   customer: Customer;
@@ -221,9 +222,19 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                         {order.products?.length ? ` · ${order.products.length} producto(s)` : ''}
                       </p>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 whitespace-nowrap">
-                      {ORDER_STATUS_LABELS[order.status ?? 'PENDING'] ?? order.status}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 whitespace-nowrap">
+                        {ORDER_STATUS_LABELS[order.status ?? 'PENDING'] ?? order.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => printQuote(order)}
+                        title="Imprimir cotización"
+                        className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-bold cursor-pointer transition"
+                      >
+                        🧾
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
