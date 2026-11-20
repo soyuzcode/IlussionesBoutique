@@ -20,6 +20,15 @@ public class AuthProperties {
 
     private final Demo demo = new Demo();
 
+    private final Session session = new Session();
+
+    /**
+     * Browser origins allowed to call {@code /api/auth/**} with credentials
+     * (the session cookie). Origin patterns such as
+     * {@code https://app-*-team.vercel.app} are accepted.
+     */
+    private java.util.List<String> allowedOrigins = new java.util.ArrayList<>();
+
     public String getJwtSecret() {
         return jwtSecret;
     }
@@ -38,6 +47,60 @@ public class AuthProperties {
 
     public Demo getDemo() {
         return demo;
+    }
+
+    public Session getSession() {
+        return session;
+    }
+
+    public java.util.List<String> getAllowedOrigins() {
+        return allowedOrigins;
+    }
+
+    public void setAllowedOrigins(java.util.List<String> allowedOrigins) {
+        this.allowedOrigins = allowedOrigins;
+    }
+
+    /** Long-lived, HttpOnly session cookie used to restore a login. */
+    public static class Session {
+
+        private String cookieName = "ilussiones_session";
+        private long ttlDays = 14;
+        private boolean secure = true;
+        /** {@code None} is required while the frontend and API live on different sites. */
+        private String sameSite = "None";
+
+        public String getCookieName() {
+            return cookieName;
+        }
+
+        public void setCookieName(String cookieName) {
+            this.cookieName = cookieName;
+        }
+
+        public long getTtlDays() {
+            return ttlDays;
+        }
+
+        public void setTtlDays(long ttlDays) {
+            this.ttlDays = ttlDays;
+        }
+
+        public boolean isSecure() {
+            return secure;
+        }
+
+        public void setSecure(boolean secure) {
+            this.secure = secure;
+        }
+
+        public String getSameSite() {
+            return sameSite;
+        }
+
+        public void setSameSite(String sameSite) {
+            this.sameSite = sameSite;
+        }
     }
 
     /**

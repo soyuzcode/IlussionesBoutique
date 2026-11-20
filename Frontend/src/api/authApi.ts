@@ -1,4 +1,4 @@
-import { request } from './httpClient';
+import { fetchSession, request } from './httpClient';
 import type { AuthUser } from '../types';
 
 export interface LoginResult {
@@ -13,11 +13,14 @@ export interface LoginResult {
  * credenciales y se devuelve el token junto con los datos públicos del usuario.
  */
 export const authApi = {
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, rememberMe = true) =>
     request<LoginResult>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     }),
+  /** Restaura la sesión desde la cookie HttpOnly y guarda el token nuevo. */
+  session: (signal?: AbortSignal) => fetchSession(signal),
+  logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   forgotPassword: (email: string) =>
     request<{ status: string }>('/api/auth/forgot-password', {
       method: 'POST',

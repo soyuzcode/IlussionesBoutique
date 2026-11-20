@@ -19,9 +19,13 @@ compara contraseñas ni decide por su cuenta si un acceso es válido.
 * `POST /api/audit/events` sigue siendo público porque el frontend emite eventos
   antes del login; su cuerpo está acotado (4 KB) y tiene límite de tasa.
 * Todo el resto de `/api/**` (negocio y lectura de auditoría) exige un JWT válido.
-* CSRF está deshabilitado de forma deliberada porque no se usan cookies de
-  sesión; la credencial viaja en la cabecera `Authorization`. Si en el futuro se
-  adoptan sesiones con cookie, CSRF debe reactivarse.
+* La API de negocio se autentica con la cabecera `Authorization`, así que el
+  filtro CSRF de Spring sigue deshabilitado. La cookie `HttpOnly` de sesión
+  (`ilussiones_session`, `Path=/api/auth`) solo la leen `POST /api/auth/session`
+  y `POST /api/auth/logout`, que exigen `X-Requested-With: XMLHttpRequest`: un
+  formulario de otro sitio no puede enviarla y un script de otro sitio necesita
+  un preflight CORS que solo pasan los orígenes del frontend configurados. La
+  cookie va firmada con una clave derivada, por lo que no sirve como Bearer.
 * No se usa HTTP Basic ni formularios de login de Spring.
 
 Los JWT son HS256, los firma `JwtTokenService` y los valida el

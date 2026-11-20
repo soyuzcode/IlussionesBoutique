@@ -79,3 +79,34 @@ export function authHeaders(): Record<string, string> {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+const SIGNED_OUT_KEY = 'ilussiones.auth.signedOut';
+
+/**
+ * Marca persistente de "cerré sesión": si el logout no llega al servidor, la
+ * cookie HttpOnly sigue viva y JavaScript no puede borrarla. Con esta marca la
+ * app no la usa para reabrir la sesión y reintenta el logout al arrancar.
+ */
+export function markSignedOut(): void {
+  try {
+    localStorage.setItem(SIGNED_OUT_KEY, '1');
+  } catch {
+    // Sin almacenamiento persistente no hay nada que marcar.
+  }
+}
+
+export function clearSignedOut(): void {
+  try {
+    localStorage.removeItem(SIGNED_OUT_KEY);
+  } catch {
+    // Nada que limpiar.
+  }
+}
+
+export function isSignedOut(): boolean {
+  try {
+    return localStorage.getItem(SIGNED_OUT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}

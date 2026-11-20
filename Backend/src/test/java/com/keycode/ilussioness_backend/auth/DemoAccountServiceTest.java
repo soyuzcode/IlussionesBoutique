@@ -76,6 +76,19 @@ class DemoAccountServiceTest {
                 .hasMessageContaining("app.auth.demo.password");
     }
 
+    @Test
+    void credentialVersionSurvivesRestartsButFollowsThePassword() {
+        AuthProperties properties = properties();
+        properties.setJwtSecret("test-only-jwt-secret-0123456789abcdef0123456789abcdef");
+        String first = new DemoAccountService(properties, passwordEncoder).credentialVersion();
+
+        assertThat(new DemoAccountService(properties, passwordEncoder).credentialVersion()).isEqualTo(first);
+        assertThat(first).doesNotContain(RAW_PASSWORD);
+
+        properties.getDemo().setPassword("AnotherPass456!");
+        assertThat(new DemoAccountService(properties, passwordEncoder).credentialVersion()).isNotEqualTo(first);
+    }
+
     private DemoAccountService service() {
         return new DemoAccountService(properties(), passwordEncoder);
     }

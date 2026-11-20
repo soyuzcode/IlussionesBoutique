@@ -1,5 +1,12 @@
 package com.keycode.ilussioness_backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.keycode.ilussioness_backend.auth.AuthProperties;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -48,9 +55,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // The API is stateless and authenticates with a bearer token, not a
-                // cookie. CSRF therefore does not apply. Re-enable CSRF if cookie
-                // based sessions are introduced.
+                // API calls authenticate with a bearer token. The session cookie is
+                // scoped to /api/auth and only exchanged for a token by
+                // POST /api/auth/session, whose response a cross-site page cannot
+                // read (credentialed CORS is limited to the frontend origins).
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session ->
@@ -62,6 +70,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                        // Authenticated by the HttpOnly session cookie, validated in the controller.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/session").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                         // OAuth providers redirect the browser here without a bearer token;
                         // the request is authenticated by the signed, short-lived state parameter.
                         .requestMatchers(HttpMethod.GET, "/api/calendar/*/callback").permitAll()
@@ -76,6 +87,42 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, exception) -> forbidden(response)));
 
         return http.build();
+    }
+
+    /**
+     * Credentialed CORS for {@code /api/auth/**}, so the browser may send and
+     * store the session cookie. Only the configured frontend origins are allowed;
+     * every other path allows any origin without credentials. The security CORS
+     * filter answers preflights from this source, so every path must be covered.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(
+            AuthProperties properties,
+            @Value("${app.frontend-url:}") String frontendUrl
+    ) {
+        List<String> origins = new ArrayList<>(properties.getAllowedOrigins());
+        if (!frontendUrl.isBlank()) {
+            origins.add(frontendUrl.replaceAll("/+$", ""));
+        }
+
+        CorsConfiguration auth = new CorsConfiguration();
+        auth.setAllowedOriginPatterns(origins);
+        auth.setAllowedMethods(List.of("POST", "OPTIONS"));
+        auth.setAllowedHeaders(List.of("*"));
+        auth.setAllowCredentials(true);
+        auth.setMaxAge(3600L);
+
+        // Same policy as the controllers' @CrossOrigin("*"): bearer-token calls, no cookies.
+        CorsConfiguration api = new CorsConfiguration();
+        api.addAllowedOrigin("*");
+        api.addAllowedMethod("*");
+        api.addAllowedHeader("*");
+        api.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/auth/**", auth);
+        source.registerCorsConfiguration("/**", api);
+        return source;
     }
 
     @Bean

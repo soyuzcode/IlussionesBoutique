@@ -24,6 +24,7 @@ public class DemoAccountService {
     private final String name;
     private final String role;
     private final String passwordHash;
+    private final String credentialVersion;
 
     public DemoAccountService(AuthProperties properties, PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
@@ -34,6 +35,29 @@ public class DemoAccountService {
         this.role = require(demo.getRole(), "app.auth.demo.role").trim();
         this.passwordHash = passwordEncoder.encode(
                 require(demo.getPassword(), "app.auth.demo.password"));
+        this.credentialVersion = credentialVersion(properties.getJwtSecret(), demo.getPassword());
+    }
+
+    /**
+     * Stable across restarts (unlike the salted BCrypt hash) and changes when the
+     * configured password changes. Keyed, so it reveals nothing about the password.
+     */
+    private static String credentialVersion(String secret, String password) {
+        if (secret == null || secret.isBlank()) {
+            return java.util.UUID.randomUUID().toString();
+        }
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(DerivedKeys.hmacKey(secret, "demo-credential-v1"));
+            return "demo:" + java.util.Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(mac.doFinal(password.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.GeneralSecurityException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    String credentialVersion() {
+        return credentialVersion;
     }
 
     /**

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 
 import { authApi } from '../../api/authApi';
@@ -14,6 +14,7 @@ interface LoginProps {
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 const INVALID_CREDENTIALS_MESSAGE = 'User or password wrong';
+const SLOW_SERVER_MS = 4000;
 const UNAVAILABLE_MESSAGE =
   'Could not reach the server. Check your connection and try again.';
 
@@ -22,6 +23,15 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [slowServer, setSlowServer] = useState(false);
+
+  // El backend gratuito se duerme; si el login tarda, avisamos que está despertando.
+  useEffect(() => {
+    if (!submitting) return;
+    const timer = setTimeout(() => setSlowServer(true), SLOW_SERVER_MS);
+    return () => clearTimeout(timer);
+  }, [submitting]);
 
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -51,7 +61,7 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
     try {
       // El backend valida las credenciales y emite el token. El frontend no
       // compara contraseñas ni decide por su cuenta si el acceso es válido.
-      const result = await authApi.login(email.trim().toLowerCase(), password);
+      const result = await authApi.login(email.trim().toLowerCase(), password, rememberMe);
       saveSession(result.token, result.user);
       onLoginSuccess?.(result.user);
     } catch (err) {
@@ -63,6 +73,7 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
       );
     } finally {
       setSubmitting(false);
+      setSlowServer(false);
     }
   };
 
@@ -139,6 +150,16 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
             />
           </div>
 
+          <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 accent-pink-600 cursor-pointer"
+            />
+            Keep me signed in
+          </label>
+
           {error && (
             <div
               role="alert"
@@ -155,6 +176,12 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
           >
             {submitting ? 'Signing In…' : 'Sign In'}
           </button>
+
+          {slowServer && (
+            <p role="status" className="text-xs text-gray-500 text-center">
+              The server is waking up. The first sign-in can take up to a minute…
+            </p>
+          )}
         </form>
 
         <div className="text-center space-y-4 pt-2">

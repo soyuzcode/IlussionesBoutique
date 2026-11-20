@@ -13,6 +13,17 @@ public record LoginRequest(
 
         @NotBlank(message = "password is required")
         @Size(max = 200, message = "password must be at most 200 characters")
-        String password
+        String password,
+
+        /** Keeps the session cookie so the user stays signed in. Defaults to {@code true}. */
+        Boolean rememberMe
 ) {
+    public LoginRequest(String email, String password) {
+        this(email, password, null);
+    }
+
+    public boolean keepSession() {
+        return rememberMe == null || rememberMe;
+    }
+
 }
