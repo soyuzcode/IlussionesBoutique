@@ -80,6 +80,20 @@ describe('order draft', () => {
     expect(data.custom?.measurements.hip).toBeNull();
   });
 
+  it('accepts a deposit equal to a fractional total', () => {
+    const item: Product = { ...tiara, price: 19.99 };
+    const draft = {
+      ...emptyOrderDraft(),
+      eventType: 'Boda',
+      productIds: [item.productId],
+      customOrder: true,
+      customization: 'Sirena',
+      customPrice: '99.99',
+      deposit: '119.98',
+    };
+    expect(validateOrderDraft(draft, [item])).toBe(null);
+  });
+
   it('requires products for regular orders', () => {
     expect(validateOrderDraft({ ...emptyOrderDraft(), eventType: 'Boda' }, [tiara])).toMatch(/producto/);
   });

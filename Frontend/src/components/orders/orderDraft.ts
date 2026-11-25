@@ -28,6 +28,7 @@ export const emptyOrderDraft = (): OrderDraft => ({
 
 const AMOUNT = /^\d+(\.\d{1,2})?$/;
 const toAmount = (value: string) => (AMOUNT.test(value.trim()) ? Number(value.trim()) : NaN);
+const toCents = (value: number) => Math.round(value * 100) / 100;
 
 export const generateOrderId = () => `PED-${Date.now().toString(36).toUpperCase()}`;
 
@@ -36,8 +37,8 @@ export function draftTotals(draft: OrderDraft, products: Product[]) {
   const productsTotal = selected.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
   const customPrice = draft.customOrder ? toAmount(draft.customPrice) || 0 : 0;
   const deposit = draft.customOrder ? toAmount(draft.deposit) || 0 : 0;
-  const total = productsTotal + customPrice;
-  return { selected, total, deposit, balance: Math.max(total - deposit, 0) };
+  const total = toCents(productsTotal + customPrice);
+  return { selected, total, deposit, balance: Math.max(toCents(total - deposit), 0) };
 }
 
 /** Devuelve el mensaje de error o null si el pedido es válido. */
