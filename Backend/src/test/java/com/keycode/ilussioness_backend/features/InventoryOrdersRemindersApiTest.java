@@ -104,6 +104,50 @@ class InventoryOrdersRemindersApiTest {
     }
 
     @Test
+    void customOrderKeepsDressDetailsAndComputesBalanceDue() throws Exception {
+        String customerId = create("/api/customer", "{\"name\":\"Carla Ruiz\",\"phone\":\"72222222\"}")
+                .get("id").asString();
+        String productId = create("/api/product",
+                "{\"name\":\"Tiara\",\"type\":\"CARD\",\"price\":30,\"stock\":2}")
+                .get("productId").asString();
+        String order = """
+                {"orderId":"%s","eventType":"XV años","deliveryDate":"2026-12-20T12:00:00",
+                 "customer":{"id":"%s"},"products":[{"productId":"%s"}],
+                 "customOrder":true,"customization":" Vestido sirena ","customizationDescription":"Encaje",
+                 "customPrice":%s,"deposit":%s,
+                 "measurements":{"shoulder":"38","bust":"90","hip":"95","waist":"70",
+                                 "skirtLength":"100","blouseLength":"40","neckline":" "}}""";
+
+        mockMvc.perform(auth(json(post("/api/order"), order.formatted("PED-C1", customerId, productId, "200", "500"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("deposit_exceeds_total"));
+
+        mockMvc.perform(auth(json(post("/api/order"), order.formatted("PED-C1", customerId, productId, "200", "80"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customOrder").value(true))
+                .andExpect(jsonPath("$.customization").value("Vestido sirena"))
+                .andExpect(jsonPath("$.measurements.bust").value("90"))
+                .andExpect(jsonPath("$.measurements.neckline").doesNotExist())
+                .andExpect(jsonPath("$.total").value(230))
+                .andExpect(jsonPath("$.deposit").value(80))
+                .andExpect(jsonPath("$.balanceDue").value(150));
+
+        mockMvc.perform(auth(json(put("/api/order/PED-C1"), "{\"deposit\":120}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balanceDue").value(110));
+
+        String plain = """
+                {"orderId":"PED-C2","eventType":"Boda","deliveryDate":"2026-12-20T12:00:00",
+                 "customer":{"id":"%s"},"products":[{"productId":"%s"}],"deposit":10,"customization":"x"}""";
+        mockMvc.perform(auth(json(post("/api/order"), plain.formatted(customerId, productId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customOrder").value(false))
+                .andExpect(jsonPath("$.customization").doesNotExist())
+                .andExpect(jsonPath("$.deposit").doesNotExist())
+                .andExpect(jsonPath("$.balanceDue").value(30));
+    }
+
+    @Test
     void upcomingReturnsOnlyScheduledAppointmentsInsideTheWindow() throws Exception {
         String customerId = create("/api/customer", "{\"name\":\"Rosa\",\"phone\":\"71111111\"}")
                 .get("id").asString();

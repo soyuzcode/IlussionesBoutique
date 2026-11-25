@@ -268,13 +268,14 @@ export function App() {
   };
 
   const handleAddAppointment = async (data: NewAppointmentData) => {
+    let orderFailed = false;
     try {
       const customerId =
         data.customerId ??
         (
           await customersApi.create({
             name: data.customerName.trim(),
-            phone: data.phone.trim() || undefined,
+            phone: data.phone.trim(),
           })
         ).id;
 
@@ -285,9 +286,21 @@ export function App() {
         appointmentTime: to24h(data.time, data.period),
       });
 
+      if (data.order) {
+        const customerName = customers.find((c) => c.id === customerId)?.name ?? data.customerName.trim();
+        try {
+          await ordersApi.create({ ...data.order, customerId, customer: { id: customerId, name: customerName } });
+        } catch {
+          await Promise.all([loadAppointments(), loadCustomers(), loadOrders()]);
+          orderFailed = true;
+          throw new Error('La cita se guardó, pero no se pudo crear el pedido. Agrégalo desde Pedidos.');
+        }
+      }
+
       setIsNewClientOpen(false);
-      await Promise.all([loadAppointments(), loadCustomers()]);
-    } catch {
+      await Promise.all([loadAppointments(), loadCustomers(), loadOrders()]);
+    } catch (err) {
+      if (orderFailed) throw err;
       // La capa API registra los errores de transporte/HTTP.
       // Este evento identifica el fallo del flujo de creación.
       auditEvent({
@@ -295,7 +308,7 @@ export function App() {
         entityType: 'APPOINTMENT',
         metadata: { REASON: 'WORKFLOW_FAILED' },
       });
-      throw new Error('No se pudo guardar la cita. Intenta de nuevo.');
+      throw new Error('No se pudo guardar la cita. Intenta de nuevo.', { cause: err });
     }
   };
 
@@ -439,7 +452,7 @@ export function App() {
                     📝
                   </div>
                   <span className="font-semibold text-gray-700 text-sm sm:text-base">
-                    Nuevo Cliente / Cita
+                    Agregar cliente / cita
                   </span>
                 </button>
 
@@ -537,7 +550,13 @@ export function App() {
           )}
 
           {activeTab === 'orders' && (
-            <OrdersTab orders={orders} onRefresh={loadOrders} offline={ordersOffline} />
+            <OrdersTab
+              orders={orders}
+              customers={customers}
+              onRefresh={loadOrders}
+              onCustomersChanged={loadCustomers}
+              offline={ordersOffline}
+            />
           )}
 
           {activeTab === 'inventory' && <InventoryTab />}

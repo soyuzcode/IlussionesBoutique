@@ -1,19 +1,23 @@
 import { useState } from 'react';
-import type { Order } from '../../types';
-import { ordersApi } from '../../api/ordersApi';
+import type { Customer, Order } from '../../types';
+import { ordersApi, type OrderUpdateData } from '../../api/ordersApi';
 import { formatDate } from '../../utils/dates';
-import { formatMoney, orderTotal, printQuote } from '../../utils/quote';
+import { formatMoney, orderBalance, orderTotal, printQuote } from '../../utils/quote';
 import OrderModal from './OrderModal';
+import NewOrderModal from './NewOrderModal';
 
 interface OrdersTabProps {
   orders: Order[];
+  customers: Customer[];
   onRefresh: () => Promise<void> | void;
+  onCustomersChanged?: () => Promise<void> | void;
   /** El backend no respondió: solo se muestran los pedidos guardados en este dispositivo. */
   offline?: boolean;
 }
 
-export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps) {
+export function OrdersTab({ orders, customers, onRefresh, onCustomersChanged, offline = false }: OrdersTabProps) {
   const [selected, setSelected] = useState<{ order: Order; mode: 'view' | 'edit' } | null>(null);
+  const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [error, setError] = useState('');
 
   const handleDelete = async (order: Order) => {
@@ -27,7 +31,7 @@ export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps
     }
   };
 
-  const handleSave = async (data: { eventType: string; deliveryDate: string }) => {
+  const handleSave = async (data: OrderUpdateData) => {
     if (!selected) return;
     await ordersApi.update(selected.order.orderId, data); // si falla, el modal muestra el error
     await onRefresh();
@@ -36,7 +40,16 @@ export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps
 
   return (
     <div className="space-y-4 w-full">
-      <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+      <div className="flex justify-between items-center gap-2">
+        <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
+        <button
+          type="button"
+          onClick={() => setIsNewOrderOpen(true)}
+          className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer shadow-sm"
+        >
+          + Agregar pedido
+        </button>
+      </div>
 
       {offline && (
         <p role="status" className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold p-3 rounded-xl">
@@ -72,8 +85,12 @@ export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps
             {order.customer && <p className="text-xs text-gray-500">{order.eventType}</p>}
             <p className="text-[11px] text-gray-400 font-medium">Entrega: {formatDate(order.deliveryDate)}</p>
             <p className="text-xs font-semibold text-gray-700">
-              {(order.products ?? []).length} producto(s) · {formatMoney(orderTotal(order))}
+              {(order.products ?? []).length} producto(s){order.customOrder ? ' + vestido personalizado' : ''} ·{' '}
+              {formatMoney(orderTotal(order))}
             </p>
+            {order.customOrder && (
+              <p className="text-xs font-bold text-pink-700">Saldo pendiente: {formatMoney(orderBalance(order))}</p>
+            )}
 
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button
@@ -104,6 +121,15 @@ export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps
           </div>
         ))}
       </div>
+
+      {isNewOrderOpen && (
+        <NewOrderModal
+          customers={customers}
+          onClose={() => setIsNewOrderOpen(false)}
+          onCreated={onRefresh}
+          onCustomerCreated={onCustomersChanged}
+        />
+      )}
 
       {selected && (
         <OrderModal

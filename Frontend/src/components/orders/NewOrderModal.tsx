@@ -1,60 +1,81 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import type { Customer, Product } from '../../types';
+import { useState, type FormEvent } from 'react';
+import type { Customer } from '../../types';
 import { LocalSaveError, ordersApi } from '../../api/ordersApi';
-import { productsApi } from '../../api/productsApi';
+import { customersApi } from '../../api/customersApi';
 import { ApiError } from '../../api/httpClient';
-import { todayISO } from '../../utils/dates';
+import { formatPhone, isValidPhone } from '../../utils/phone';
+import OrderFormFields from './OrderFormFields';
+import { useAvailableProducts } from './useAvailableProducts';
+import { emptyOrderDraft, orderErrorMessage, toOrderData, validateOrderDraft } from './orderDraft';
 
 interface NewOrderModalProps {
-  customer: Customer;
+  /** Cliente fijo (detalle de cliente). Si no se indica, se elige o agrega en el formulario. */
+  customer?: Customer;
+  customers?: Customer[];
   onClose: () => void;
   onCreated: () => Promise<void> | void;
+  onCustomerCreated?: () => Promise<void> | void;
 }
 
 const inputClass = 'w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500';
+const labelClass = 'text-gray-400 text-[10px] block uppercase font-bold mb-1';
 
-const generateOrderId = () => `PED-${Date.now().toString(36).toUpperCase()}`;
-
-export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalProps) {
-  const [eventType, setEventType] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+export function NewOrderModal({ customer, customers = [], onClose, onCreated, onCustomerCreated }: NewOrderModalProps) {
+  const products = useAvailableProducts();
+  const [draft, setDraft] = useState(emptyOrderDraft);
+  const [customerId, setCustomerId] = useState(customer?.id ?? '');
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  // Si el pedido falla después de crear al cliente, se reutiliza en el siguiente intento.
+  const [createdCustomer, setCreatedCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedOffline, setSavedOffline] = useState(false);
 
-  useEffect(() => {
-    productsApi
-      .getAll()
-      .then((all) => setProducts(all.filter((p) => p.status === 'AVAILABLE' && (p.stock ?? 0) > 0)))
-      .catch(() => setProducts([]));
-  }, []);
+  const addingCustomer = !customer && !customerId && !createdCustomer;
 
-  const toggle = (id: string) =>
-    setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  const validateCustomer = (): string | null => {
+    if (customer || customerId || createdCustomer) return null;
+    const name = newCustomerName.trim();
+    if (name.length < 2) return 'Elige un cliente o escribe el nombre del cliente a agregar.';
+    if (customers.some((c) => c.name.trim().toLowerCase() === name.toLowerCase())) {
+      return 'Ya existe un cliente con ese nombre. Selecciónalo en la lista.';
+    }
+    if (!isValidPhone(newCustomerPhone)) return 'El teléfono debe tener 8 dígitos (0000-0000).';
+    return null;
+  };
 
-  const total = products
-    .filter((p) => selected.includes(p.productId))
-    .reduce((sum, p) => sum + Number(p.price ?? 0), 0);
+  const resolveCustomer = async (): Promise<Customer> => {
+    if (customer) return customer;
+    if (createdCustomer) return createdCustomer;
+    const existing = customers.find((c) => c.id === customerId);
+    if (existing) return existing;
+    const created = await customersApi.create({ name: newCustomerName.trim(), phone: newCustomerPhone });
+    setCreatedCustomer(created);
+    await onCustomerCreated?.();
+    return created;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (eventType.trim().length < 2) return setError('Indica el tipo de evento.');
-    if (!deliveryDate) return setError('Indica la fecha de entrega.');
-    if (deliveryDate < todayISO()) return setError('La fecha de entrega no puede estar en el pasado.');
+    const invalid = validateCustomer() ?? validateOrderDraft(draft, products);
+    if (invalid) return setError(invalid);
 
     setSaving(true);
     setError('');
+    let owner: Customer;
+    try {
+      owner = await resolveCustomer();
+    } catch {
+      setError('No se pudo agregar el cliente.');
+      setSaving(false);
+      return;
+    }
     try {
       const order = await ordersApi.create({
-        orderId: generateOrderId(),
-        customerId: customer.id,
-        eventType: eventType.trim(),
-        deliveryDate,
-        productIds: selected,
-        customer: { id: customer.id, name: customer.name },
-        products: products.filter((p) => selected.includes(p.productId)),
+        ...toOrderData(draft, products),
+        customerId: owner.id,
+        customer: { id: owner.id, name: owner.name },
       });
       await onCreated();
       if (order.localOnly) {
@@ -68,44 +89,50 @@ export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalPro
       setError(
         err instanceof LocalSaveError
           ? 'Sin conexión con el servidor y no se pudo guardar el pedido en este dispositivo.'
-          : reason === 'insufficient_stock'
-            ? 'Uno de los productos ya no tiene stock.'
-            : 'No se pudo crear el pedido.',
+          : orderErrorMessage(reason),
       );
       setSaving(false);
     }
   };
 
+  const title = customer?.name ?? createdCustomer?.name;
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-[60]">
       <form onSubmit={handleSubmit} noValidate className="bg-white w-full max-w-md rounded-2xl p-5 space-y-3 shadow-xl text-xs max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-          <h3 className="font-bold text-gray-800 uppercase tracking-wider">Nuevo pedido · {customer.name}</h3>
+          <h3 className="font-bold text-gray-800 uppercase tracking-wider">Agregar pedido{title ? ` · ${title}` : ''}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold p-1 cursor-pointer">✕</button>
         </div>
-        <label className="block">
-          <span className="text-gray-400 text-[10px] uppercase font-bold">Tipo de evento</span>
-          <input value={eventType} onChange={(e) => setEventType(e.target.value)} placeholder="Boda, XV años..." className={inputClass} />
-        </label>
-        <label className="block">
-          <span className="text-gray-400 text-[10px] uppercase font-bold">Fecha de entrega</span>
-          <input type="date" min={todayISO()} value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className={inputClass} />
-        </label>
-        <div>
-          <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Productos del inventario (opcional)</span>
-          <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100 max-h-40 overflow-y-auto">
-            {products.length === 0 && <p className="p-2.5 text-gray-400">No hay productos disponibles.</p>}
-            {products.map((p) => (
-              <label key={p.productId} className="p-2.5 flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={selected.includes(p.productId)} onChange={() => toggle(p.productId)} />
-                <span className="flex-1 text-gray-700">{p.name}</span>
-                <span className="text-gray-400">stock {p.stock}</span>
-                <span className="font-semibold text-gray-700">${Number(p.price).toFixed(2)}</span>
-              </label>
-            ))}
-          </div>
-          {selected.length > 0 && <p className="text-right mt-1 font-bold text-gray-700">Total: ${total.toFixed(2)}</p>}
-        </div>
+
+        {!customer && !createdCustomer && (
+          <>
+            <label className="block">
+              <span className={labelClass}>Cliente</span>
+              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`${inputClass} cursor-pointer`}>
+                <option value="">➕ Agregar cliente</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            {addingCustomer && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className={labelClass}>Nombre del cliente</span>
+                  <input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Ej. Lucía Gómez" className={inputClass} />
+                </label>
+                <label className="block">
+                  <span className={labelClass}>Teléfono</span>
+                  <input type="tel" inputMode="numeric" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(formatPhone(e.target.value))} maxLength={9} placeholder="7000-0000" className={inputClass} />
+                </label>
+              </div>
+            )}
+          </>
+        )}
+
+        <OrderFormFields draft={draft} products={products} onChange={setDraft} />
+
         {error && <p role="alert" className="bg-red-50 border border-red-200 text-red-600 font-semibold p-2.5 rounded-xl">{error}</p>}
         {savedOffline ? (
           <>
@@ -117,12 +144,12 @@ export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalPro
             </button>
           </>
         ) : (
-        <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold cursor-pointer">Cancelar</button>
-          <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50">
-            {saving ? 'Guardando...' : 'Crear pedido'}
-          </button>
-        </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold cursor-pointer">Cancelar</button>
+            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50">
+              {saving ? 'Guardando...' : 'Agregar pedido'}
+            </button>
+          </div>
         )}
       </form>
     </div>

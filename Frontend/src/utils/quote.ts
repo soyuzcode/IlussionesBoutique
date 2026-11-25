@@ -1,4 +1,4 @@
-import type { Order, Product } from '../types';
+import type { BodyMeasurements, Order, Product } from '../types';
 import { formatDate } from './dates';
 
 const PRODUCT_NAMES: Record<string, string> = {
@@ -23,8 +23,28 @@ export function describeProduct(product: Product): string {
 export const formatMoney = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount) || 0);
 
-export const orderTotal = (order: Order) =>
+const productsTotal = (order: Order) =>
   (order.products ?? []).reduce((sum, product) => sum + Number(product.price || 0), 0);
+
+/** Productos del inventario más el precio del vestido personalizado. */
+export const orderTotal = (order: Order) =>
+  productsTotal(order) + (order.customOrder ? Number(order.customPrice || 0) : 0);
+
+/** Abono recibido; solo aplica a pedidos personalizados. */
+export const orderDeposit = (order: Order) => (order.customOrder ? Number(order.deposit || 0) : 0);
+
+/** Saldo pendiente: total menos abono. */
+export const orderBalance = (order: Order) => Math.max(orderTotal(order) - orderDeposit(order), 0);
+
+export const MEASUREMENT_FIELDS: { key: keyof BodyMeasurements; label: string }[] = [
+  { key: 'shoulder', label: 'Hombro' },
+  { key: 'bust', label: 'Busto' },
+  { key: 'hip', label: 'Cadera' },
+  { key: 'waist', label: 'Cintura' },
+  { key: 'skirtLength', label: 'Alto de falda' },
+  { key: 'blouseLength', label: 'Alto de blusa' },
+  { key: 'neckline', label: 'Escote' },
+];
 
 const HTML_ESCAPES: Record<string, string> = {
   '&': '&amp;',
@@ -46,6 +66,23 @@ export function printQuote(order: Order) {
       </tr>`,
     )
     .join('');
+  const customRow = order.customOrder
+    ? `<tr>
+        <td>Vestido personalizado · ${escapeHtml(order.customization)}${
+          order.customizationDescription ? `<br><small>${escapeHtml(order.customizationDescription)}</small>` : ''
+        }</td>
+        <td class="r">${formatMoney(Number(order.customPrice || 0))}</td>
+      </tr>`
+    : '';
+  const measurements = order.customOrder
+    ? MEASUREMENT_FIELDS.filter(({ key }) => order.measurements?.[key])
+        .map(({ key, label }) => `${label}: ${escapeHtml(order.measurements?.[key])} cm`)
+        .join(' · ')
+    : '';
+  const paymentRows = order.customOrder
+    ? `<tr><td>Abono</td><td class="r">-${formatMoney(orderDeposit(order))}</td></tr>
+       <tr class="total"><td>Saldo pendiente</td><td class="r">${formatMoney(orderBalance(order))}</td></tr>`
+    : '';
 
   const printWindow = window.open('', '_blank', 'width=800,height=900');
   if (!printWindow) {
@@ -68,12 +105,13 @@ export function printQuote(order: Order) {
     <div class="meta">
       ${order.customer ? `<p><b>Cliente:</b> ${escapeHtml(order.customer.name)}</p>` : ''}
       <p><b>Evento:</b> ${escapeHtml(order.eventType)}</p>
-      <p><b>Fecha de entrega:</b> ${escapeHtml(formatDate(order.deliveryDate))}</p>
+      <p><b>${order.customOrder ? 'Fecha de entrega programada' : 'Fecha de entrega'}:</b> ${escapeHtml(formatDate(order.deliveryDate))}</p>
+      ${measurements ? `<p><b>Medidas:</b> ${measurements}</p>` : ''}
     </div>
     <table>
       <thead><tr><th>Producto</th><th class="r">Precio</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="2">Sin productos</td></tr>'}</tbody>
-      <tfoot><tr class="total"><td>Total</td><td class="r">${formatMoney(orderTotal(order))}</td></tr></tfoot>
+      <tbody>${rows + customRow || '<tr><td colspan="2">Sin productos</td></tr>'}</tbody>
+      <tfoot><tr class="total"><td>Total</td><td class="r">${formatMoney(orderTotal(order))}</td></tr>${paymentRows}</tfoot>
     </table></body></html>`);
   printWindow.document.close();
   printWindow.focus();

@@ -1,5 +1,5 @@
 import { ApiError, request } from './httpClient';
-import type { Customer, Order, OrderStatus, Product } from '../types';
+import type { CustomOrderDetails, Customer, Order, OrderStatus, Product } from '../types';
 
 const BASE = '/api/order';
 export const LOCAL_ORDERS_KEY = 'demo_orders_ilussiones';
@@ -13,7 +13,28 @@ export interface NewOrderData {
   /** Copia que solo se usa si el pedido se guarda en este dispositivo. */
   customer?: Customer;
   products?: Product[];
+  /** Vestido personalizado con medidas y abono. */
+  custom?: CustomOrderDetails;
 }
+
+export interface OrderUpdateData {
+  eventType: string;
+  deliveryDate: string;
+  status?: OrderStatus;
+  deposit?: number;
+}
+
+const customFields = (custom?: CustomOrderDetails) =>
+  custom
+    ? {
+        customOrder: true,
+        customization: custom.customization,
+        customizationDescription: custom.customizationDescription ?? null,
+        customPrice: custom.customPrice,
+        deposit: custom.deposit,
+        measurements: custom.measurements,
+      }
+    : {};
 
 export interface OrdersListing {
   orders: Order[];
@@ -96,6 +117,7 @@ export const ordersApi = {
           deliveryDate: toDeliveryInstant(data.deliveryDate),
           customer: { id: data.customerId },
           products: data.productIds.map((productId) => ({ productId })),
+          ...customFields(data.custom),
         }),
       });
     } catch (err) {
@@ -107,6 +129,7 @@ export const ordersApi = {
         customer: data.customer ?? { id: data.customerId, name: '' },
         products: data.products ?? [],
         status: 'PENDING',
+        ...customFields(data.custom),
         localOnly: true,
       };
       writeLocal([order, ...readLocal()]);
@@ -115,7 +138,7 @@ export const ordersApi = {
   },
 
   // Los pedidos locales no existen en el servidor, así que se editan y borran aquí.
-  update: async (id: string, data: { eventType: string; deliveryDate: string; status?: OrderStatus }) => {
+  update: async (id: string, data: OrderUpdateData) => {
     if (findLocal(id)) {
       const updated = readLocal().map((order) => (order.orderId === id ? { ...order, ...data } : order));
       writeLocal(updated);

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class CustomerService {
@@ -23,6 +24,8 @@ public class CustomerService {
     private static final Logger LOG = LoggerFactory.getLogger(CustomerService.class);
     private static final int NAME_MAX_LENGTH = 120;
     private static final int PHONE_MAX_LENGTH = 20;
+    /** Exactly eight digits, optionally split 4-4 by a hyphen or space. */
+    private static final Pattern PHONE_PATTERN = Pattern.compile("\\d{4}[- ]?\\d{4}");
 
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
@@ -212,6 +215,11 @@ public class CustomerService {
         if (phone.length() > PHONE_MAX_LENGTH) {
             throw new BusinessValidationException("phone_too_long");
         }
+        if (!PHONE_PATTERN.matcher(phone).matches()) {
+            throw new BusinessValidationException("phone_invalid");
+        }
+        String digits = phone.replaceAll("\\D", "");
+        phone = digits.substring(0, 4) + "-" + digits.substring(4);
 
         customer.setName(name);
         customer.setPhone(phone);

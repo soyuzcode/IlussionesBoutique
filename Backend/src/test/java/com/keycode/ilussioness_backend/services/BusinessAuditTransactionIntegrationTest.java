@@ -49,7 +49,7 @@ class BusinessAuditTransactionIntegrationTest {
 
     @Test
     void successfulCustomerCreateCommitsBusinessRowAndSuccessAuditTogether() {
-        Customer saved = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer saved = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         assertThat(saved.getId()).isNotNull();
         assertThat(jdbcTemplate.queryForObject(
@@ -66,15 +66,15 @@ class BusinessAuditTransactionIntegrationTest {
 
     @Test
     void successfulCustomerUpdateCommitsBusinessRowAndSuccessAuditTogether() {
-        Customer created = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer created = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         Customer updated = customerService.updateCustomer(
                 created.getId(),
-                new Customer("Ana María", "556")
+                new Customer("Ana María", "7555-5556")
         ).orElseThrow();
 
         assertThat(updated.getName()).isEqualTo("Ana María");
-        assertThat(updated.getPhone()).isEqualTo("556");
+        assertThat(updated.getPhone()).isEqualTo("7555-5556");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from customer where id = ? and name = ?",
                 Long.class,
@@ -115,7 +115,7 @@ class BusinessAuditTransactionIntegrationTest {
 
     @Test
     void realPersistenceFailureIsAuditedAndOriginalExceptionIsReturned() {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
         Appointment appointment = new Appointment(
                 customer,
                 "fittings",

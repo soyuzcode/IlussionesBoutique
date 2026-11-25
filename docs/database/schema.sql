@@ -172,6 +172,19 @@ CREATE TABLE public.orders (
     customer_id   uuid,
     status        character varying(20) DEFAULT 'PENDING' NOT NULL,
     stock_reserved boolean DEFAULT false NOT NULL,
+    custom_order  boolean DEFAULT false NOT NULL,
+    customization character varying(120),
+    customization_description character varying(1000),
+    custom_price  numeric(10,2),
+    deposit       numeric(10,2),
+    measure_shoulder      character varying(20),
+    measure_bust          character varying(20),
+    measure_hip           character varying(20),
+    measure_waist         character varying(20),
+    measure_skirt_length  character varying(20),
+    measure_blouse_length character varying(20),
+    measure_neckline      character varying(20),
+    CONSTRAINT orders_custom_amounts_check CHECK ((custom_price IS NULL OR custom_price >= 0) AND (deposit IS NULL OR deposit >= 0)),
     CONSTRAINT orders_status_check CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED'))
 );
 

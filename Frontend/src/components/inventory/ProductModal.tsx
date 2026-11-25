@@ -51,7 +51,7 @@ export function ProductModal({ product, onClose, onSave }: ProductModalProps) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <form onSubmit={handleSubmit} noValidate className="bg-white w-full max-w-md rounded-2xl p-5 space-y-3 shadow-xl text-xs">
         <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-          <h3 className="font-bold text-gray-800 uppercase tracking-wider">{product ? 'Editar producto' : 'Nuevo producto'}</h3>
+          <h3 className="font-bold text-gray-800 uppercase tracking-wider">{product ? 'Editar producto' : 'Agregar producto'}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold p-1 cursor-pointer">✕</button>
         </div>
         <label className="block">

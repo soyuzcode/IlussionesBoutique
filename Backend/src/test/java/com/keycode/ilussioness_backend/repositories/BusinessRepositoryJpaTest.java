@@ -60,7 +60,7 @@ class BusinessRepositoryJpaTest {
 
     @Test
     void customerIsPersistedAndFoundById() {
-        Customer saved = persistCustomer("Ana", "555");
+        Customer saved = persistCustomer("Ana", "7555-5555");
 
         assertThat(saved.getId()).isNotNull();
         entityManager.clear();
@@ -68,25 +68,25 @@ class BusinessRepositoryJpaTest {
         assertThat(customerRepository.findById(saved.getId()))
                 .get()
                 .extracting(Customer::getName, Customer::getPhone)
-                .containsExactly("Ana", "555");
+                .containsExactly("Ana", "7555-5555");
     }
 
     @Test
     void customerIsUpdatedInPlace() {
-        Customer customer = persistCustomer("Ana", "555");
+        Customer customer = persistCustomer("Ana", "7555-5555");
         customer.setName("Ana María");
-        customer.setPhone("556");
+        customer.setPhone("7555-5556");
         customerRepository.saveAndFlush(customer);
         entityManager.clear();
 
         Customer reloaded = customerRepository.findById(customer.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("Ana María");
-        assertThat(reloaded.getPhone()).isEqualTo("556");
+        assertThat(reloaded.getPhone()).isEqualTo("7555-5556");
     }
 
     @Test
     void customerIsDeleted() {
-        Customer customer = persistCustomer("Ana", "555");
+        Customer customer = persistCustomer("Ana", "7555-5555");
 
         customerRepository.deleteById(customer.getId());
         customerRepository.flush();
@@ -96,7 +96,7 @@ class BusinessRepositoryJpaTest {
 
     @Test
     void appointmentPersistsCustomerReferenceAndEnumStatus() {
-        Customer customer = persistCustomer("Ana", "555");
+        Customer customer = persistCustomer("Ana", "7555-5555");
         Appointment saved = appointmentRepository.saveAndFlush(new Appointment(
                 customer,
                 "fittings",
@@ -116,8 +116,8 @@ class BusinessRepositoryJpaTest {
 
     @Test
     void appointmentQueryFiltersByCustomer() {
-        Customer first = persistCustomer("Ana", "555");
-        Customer second = persistCustomer("Beto", "556");
+        Customer first = persistCustomer("Ana", "7555-5555");
+        Customer second = persistCustomer("Beto", "7555-5556");
         appointmentRepository.saveAndFlush(new Appointment(
                 first, "one", LocalDate.now(), LocalTime.of(9, 0), AppointmentStatus.SCHEDULED));
         appointmentRepository.saveAndFlush(new Appointment(

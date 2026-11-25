@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import type { Order } from '../../types';
+import type { OrderUpdateData } from '../../api/ordersApi';
 import { ApiError } from '../../api/httpClient';
 import { formatDate } from '../../utils/dates';
-import { describeProduct, formatMoney, orderTotal } from '../../utils/quote';
+import { MEASUREMENT_FIELDS, describeProduct, formatMoney, orderBalance, orderDeposit, orderTotal } from '../../utils/quote';
 
 interface OrderModalProps {
   order: Order;
   mode: 'view' | 'edit';
   onClose: () => void;
-  onSave: (data: { eventType: string; deliveryDate: string }) => Promise<void>;
+  onSave: (data: OrderUpdateData) => Promise<void>;
   onPrint: () => void;
 }
 
@@ -20,9 +21,11 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
   const [deliveryDate, setDeliveryDate] = useState(
     order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('sv-SE') : '',
   );
+  const [deposit, setDeposit] = useState(order.customOrder ? String(order.deposit ?? 0) : '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const isEditing = mode === 'edit';
+  const custom = Boolean(order.customOrder);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,12 +38,18 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
       setError('La fecha de entrega es obligatoria.');
       return;
     }
+    const newDeposit = Number(deposit);
+    if (custom && (!/^\d+(\.\d{1,2})?$/.test(deposit.trim()) || newDeposit > orderTotal(order))) {
+      setError('El abono debe ser un monto válido y no mayor que el total.');
+      return;
+    }
 
     setSaving(true);
     try {
       await onSave({
         eventType: eventType.trim(),
         deliveryDate: new Date(`${deliveryDate}T12:00:00`).toISOString(),
+        ...(custom ? { deposit: newDeposit } : {}),
       });
     } catch (err) {
       setError(
@@ -55,7 +64,7 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <form onSubmit={handleSubmit} className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-xl">
+      <form onSubmit={handleSubmit} className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-2">
           <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
             {isEditing ? 'Editar pedido' : 'Detalle del pedido'}
@@ -87,7 +96,9 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
           </div>
 
           <div>
-            <label className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Entrega</label>
+            <label className="text-gray-400 text-[10px] block uppercase font-bold mb-1">
+              {custom ? 'Entrega programada' : 'Entrega'}
+            </label>
             {isEditing ? (
               <input
                 type="date"
@@ -103,17 +114,75 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
           <div>
             <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Productos</span>
             <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100">
-              {(order.products ?? []).length === 0 && <p className="p-2.5 text-gray-400">Sin productos</p>}
+              {(order.products ?? []).length === 0 && !custom && <p className="p-2.5 text-gray-400">Sin productos</p>}
               {(order.products ?? []).map((product) => (
                 <div key={product.productId} className="p-2.5 flex justify-between">
                   <span className="text-gray-700">{describeProduct(product)}</span>
                   <span className="font-semibold">{formatMoney(product.price)}</span>
                 </div>
               ))}
+              {custom && (
+                <div className="p-2.5 flex justify-between">
+                  <span className="text-gray-700">Vestido personalizado · {order.customization}</span>
+                  <span className="font-semibold">{formatMoney(Number(order.customPrice || 0))}</span>
+                </div>
+              )}
             </div>
-            <p className="text-right font-bold text-gray-800 mt-2 text-sm">
-              Total: {formatMoney(orderTotal(order))}
-            </p>
+          </div>
+
+          {custom && (
+            <div className="space-y-2">
+              {order.customizationDescription && (
+                <div>
+                  <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Descripción</span>
+                  <p className="text-gray-700 whitespace-pre-line">{order.customizationDescription}</p>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Medidas (cm)</span>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  {MEASUREMENT_FIELDS.map(({ key, label }) => (
+                    <p key={key} className="flex justify-between">
+                      <span className="text-gray-500">{label}</span>
+                      <span className="font-semibold text-gray-700">{order.measurements?.[key] || '—'}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 space-y-1 font-semibold text-gray-700">
+            <div className="flex justify-between text-sm font-bold text-gray-800">
+              <span>Total</span>
+              <span>{formatMoney(orderTotal(order))}</span>
+            </div>
+            {custom && (
+              <>
+                <div className="flex justify-between items-center text-gray-500">
+                  <span>Abono</span>
+                  {isEditing ? (
+                    <input
+                      inputMode="decimal"
+                      value={deposit}
+                      onChange={(e) => setDeposit(e.target.value)}
+                      aria-label="Abono"
+                      className="w-28 p-1.5 border border-gray-200 rounded-lg bg-white text-right outline-none focus:border-pink-500"
+                    />
+                  ) : (
+                    <span>-{formatMoney(orderDeposit(order))}</span>
+                  )}
+                </div>
+                <div className="flex justify-between font-bold text-pink-700">
+                  <span>Saldo pendiente</span>
+                  <span>
+                    {formatMoney(
+                      isEditing ? Math.max(orderTotal(order) - (Number(deposit) || 0), 0) : orderBalance(order),
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

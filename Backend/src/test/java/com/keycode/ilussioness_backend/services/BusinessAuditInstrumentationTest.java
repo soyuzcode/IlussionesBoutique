@@ -63,8 +63,8 @@ class BusinessAuditInstrumentationTest {
     @Test
     void customerCreateWritesSuccessAuditWithSavedId() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
-        Customer input = new Customer("Ana", "555");
-        Customer saved = new Customer("Ana", "555");
+        Customer input = new Customer("Ana", "7555-5555");
+        Customer saved = new Customer("Ana", "7555-5555");
         saved.setId(UUID.randomUUID());
         when(customerRepository.saveAndFlush(input)).thenReturn(saved);
 
@@ -82,7 +82,7 @@ class BusinessAuditInstrumentationTest {
     @Test
     void customerCreateFailureWritesFailureAuditAndPreservesOriginalException() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
-        Customer input = new Customer("Ana", "555");
+        Customer input = new Customer("Ana", "7555-5555");
         DataIntegrityViolationException businessException =
                 new DataIntegrityViolationException("database is down");
         when(customerRepository.saveAndFlush(input)).thenThrow(businessException);
@@ -102,7 +102,7 @@ class BusinessAuditInstrumentationTest {
     @Test
     void customerCreateFailureIsNotMaskedWhenAuditAlsoFails() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
-        Customer input = new Customer("Ana", "555");
+        Customer input = new Customer("Ana", "7555-5555");
         DataIntegrityViolationException businessException =
                 new DataIntegrityViolationException("database is down");
         when(customerRepository.saveAndFlush(input)).thenThrow(businessException);
@@ -117,8 +117,8 @@ class BusinessAuditInstrumentationTest {
     @Test
     void customerCreateFailsWhenSuccessAuditCannotBeWritten() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
-        Customer input = new Customer("Ana", "555");
-        Customer saved = new Customer("Ana", "555");
+        Customer input = new Customer("Ana", "7555-5555");
+        Customer saved = new Customer("Ana", "7555-5555");
         saved.setId(UUID.randomUUID());
         when(customerRepository.saveAndFlush(input)).thenReturn(saved);
         doThrow(new IllegalStateException("audit store down"))
@@ -134,9 +134,9 @@ class BusinessAuditInstrumentationTest {
     void customerUpdateWritesSuccessAuditWithCustomerId() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
         UUID id = UUID.randomUUID();
-        Customer existing = new Customer("Ana", "555");
+        Customer existing = new Customer("Ana", "7555-5555");
         existing.setId(id);
-        Customer changes = new Customer("Ana María", "556");
+        Customer changes = new Customer("Ana María", "7555-5556");
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         when(customerRepository.saveAndFlush(existing)).thenReturn(existing);
 
@@ -144,7 +144,7 @@ class BusinessAuditInstrumentationTest {
 
         assertThat(result).containsSame(existing);
         assertThat(existing.getName()).isEqualTo("Ana María");
-        assertThat(existing.getPhone()).isEqualTo("556");
+        assertThat(existing.getPhone()).isEqualTo("7555-5556");
         verify(auditService).recordBusinessSuccess(
                 AuditEventType.CUSTOMER_UPDATED,
                 AuditEntityType.CUSTOMER,
@@ -159,7 +159,7 @@ class BusinessAuditInstrumentationTest {
         UUID id = UUID.randomUUID();
         when(customerRepository.findById(id)).thenReturn(Optional.empty());
 
-        Optional<Customer> result = service.updateCustomer(id, new Customer("Ana", "555"));
+        Optional<Customer> result = service.updateCustomer(id, new Customer("Ana", "7555-5555"));
 
         assertThat(result).isEmpty();
         verify(customerRepository, never()).saveAndFlush(any(Customer.class));
@@ -176,14 +176,14 @@ class BusinessAuditInstrumentationTest {
     void customerUpdateFailureWritesFailureAuditAndPreservesOriginalException() {
         CustomerService service = new CustomerService(customerRepository, orderRepository, auditService);
         UUID id = UUID.randomUUID();
-        Customer existing = new Customer("Ana", "555");
+        Customer existing = new Customer("Ana", "7555-5555");
         existing.setId(id);
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         DataIntegrityViolationException businessException =
                 new DataIntegrityViolationException("constraint");
         when(customerRepository.saveAndFlush(existing)).thenThrow(businessException);
 
-        assertThatThrownBy(() -> service.updateCustomer(id, new Customer("Ana", "555")))
+        assertThatThrownBy(() -> service.updateCustomer(id, new Customer("Ana", "7555-5555")))
                 .isSameAs(businessException);
 
         verify(auditService).recordBusinessFailure(
@@ -239,7 +239,7 @@ class BusinessAuditInstrumentationTest {
     void appointmentCreateWritesNonSensitiveBusinessMetadata() {
         AppointmentService service =
                 new AppointmentService(appointmentRepository, customerRepository, auditService, calendarService);
-        Customer customer = new Customer("Ana", "555");
+        Customer customer = new Customer("Ana", "7555-5555");
         customer.setId(UUID.randomUUID());
         Appointment appointment = new Appointment(
                 customer,
@@ -274,7 +274,7 @@ class BusinessAuditInstrumentationTest {
     void appointmentCreateFailureWritesFailureAudit() {
         AppointmentService service =
                 new AppointmentService(appointmentRepository, customerRepository, auditService, calendarService);
-        Customer customer = new Customer("Ana", "555");
+        Customer customer = new Customer("Ana", "7555-5555");
         customer.setId(UUID.randomUUID());
         Appointment appointment = new Appointment(
                 customer,
@@ -304,7 +304,7 @@ class BusinessAuditInstrumentationTest {
     void appointmentCreateWithMissingCustomerWritesRejectedAudit() {
         AppointmentService service =
                 new AppointmentService(appointmentRepository, customerRepository, auditService, calendarService);
-        Customer customer = new Customer("Ana", "555");
+        Customer customer = new Customer("Ana", "7555-5555");
         customer.setId(UUID.randomUUID());
         Appointment appointment = new Appointment(
                 customer,

@@ -6,6 +6,10 @@ import type { Customer, NewAppointmentData } from '../../types';
 import { APPOINTMENT_REASONS } from '../../utils/constants';
 import { TIME_SLOTS, isPastSlot, slotKey, todayISO, type TimeSlot } from '../../utils/dates';
 import TimeSlotPicker from './TimeSlotPicker';
+import { formatPhone, isValidPhone } from '../../utils/phone';
+import OrderFormFields from '../orders/OrderFormFields';
+import { useAvailableProducts } from '../orders/useAvailableProducts';
+import { emptyOrderDraft, toOrderData, validateOrderDraft } from '../orders/orderDraft';
 
 interface NewClientModalProps {
   isOpen: boolean;
@@ -26,8 +30,11 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
   const [reason, setReason] = useState(APPOINTMENT_REASONS[0]);
   const [date, setDate] = useState(todayISO());
   const [slot, setSlot] = useState<TimeSlot>(DEFAULT_SLOT);
+  const [withOrder, setWithOrder] = useState(false);
+  const [orderDraft, setOrderDraft] = useState(emptyOrderDraft);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const products = useAvailableProducts();
 
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +54,8 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
     setPhone('');
     setDate(todayISO());
     setSlot(DEFAULT_SLOT);
+    setWithOrder(false);
+    setOrderDraft(emptyOrderDraft());
     setSaving(false);
     onClose();
   };
@@ -57,7 +66,7 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
 
     if (!customerId) {
       if (!customerName.trim()) {
-        setError('Escribe el nombre de la clienta o elige una existente.');
+        setError('Escribe el nombre del cliente o elige uno existente.');
         auditEvent({
           eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
           entityType: 'APPOINTMENT',
@@ -66,7 +75,7 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
         return;
       }
       if (customers.some((c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase())) {
-        setError('Ya existe una clienta con ese nombre. Selecciónala en la lista.');
+        setError('Ya existe un cliente con ese nombre. Selecciónalo en la lista.');
         auditEvent({
           eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
           entityType: 'APPOINTMENT',
@@ -74,8 +83,8 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
         });
         return;
       }
-      if (phone && !/^[0-9+\-\s]{8,15}$/.test(phone)) {
-        setError('El teléfono no es válido.');
+      if (!isValidPhone(phone)) {
+        setError('El teléfono debe tener 8 dígitos (0000-0000).');
         auditEvent({
           eventType: 'UI_APPOINTMENT_FORM_VALIDATION_FAILED',
           entityType: 'APPOINTMENT',
@@ -112,6 +121,12 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
       return;
     }
 
+    const orderError = withOrder ? validateOrderDraft(orderDraft, products) : null;
+    if (orderError) {
+      setError(orderError);
+      return;
+    }
+
     setSaving(true);
     try {
       auditEvent({
@@ -127,16 +142,16 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
         date,
         time: slot.time,
         period: slot.period,
+        order: withOrder ? toOrderData(orderDraft, products) : undefined,
       });
-      
-      setCustomerId('');
-      setCustomerName('');
-      setPhone('');
-      setDate(todayISO());
-      setSlot(DEFAULT_SLOT);
-      onClose();
-    } catch {
-      setError('No se pudo guardar la cita. Verifica que el servidor esté activo.');
+
+      handleClose();
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.startsWith('La cita se guardó')
+          ? err.message
+          : 'No se pudo guardar la cita. Verifica que el servidor esté activo.',
+      );
     } finally {
       setSaving(false);
     }
@@ -146,7 +161,7 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-          <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Agendar Nueva Cita</h3>
+          <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Agregar cita</h3>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer">
             ✕
           </button>
@@ -154,13 +169,13 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4 text-xs sm:text-sm">
           <div>
-            <label className="block font-bold text-gray-700 mb-1">Clienta</label>
+            <label className="block font-bold text-gray-700 mb-1">Cliente</label>
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
               className={`${inputClass} cursor-pointer`}
             >
-              <option value="">➕ Nueva clienta</option>
+              <option value="">➕ Agregar cliente</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
@@ -172,7 +187,7 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
           {!customerId && (
             <>
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Nombre de la Clienta</label>
+                <label className="block font-bold text-gray-700 mb-1">Nombre del cliente</label>
                 <input
                   type="text"
                   placeholder="Ej. Lucía Gómez"
@@ -182,12 +197,14 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
                 />
               </div>
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Teléfono (opcional)</label>
+                <label className="block font-bold text-gray-700 mb-1">Teléfono</label>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   placeholder="7000-0000"
+                  maxLength={9}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatPhone(e.target.value))}
                   className={inputClass}
                 />
               </div>
@@ -222,6 +239,16 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
             <label className="block font-bold text-gray-700 mb-1">Hora</label>
             <TimeSlotPicker date={date} value={slot} onChange={setSlot} />
           </div>
+
+          <label className="flex items-center gap-2 font-bold text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={withOrder} onChange={(e) => setWithOrder(e.target.checked)} />
+            Agregar pedido
+          </label>
+          {withOrder && (
+            <div className="border border-gray-100 rounded-xl p-3 text-xs">
+              <OrderFormFields draft={orderDraft} products={products} onChange={setOrderDraft} />
+            </div>
+          )}
 
           {error && (
             <p role="alert" className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3 rounded-xl">

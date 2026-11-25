@@ -46,7 +46,7 @@ The model has three layers:
 | `order_item` | `(order_id, product_id)` | Order lines for non-dress products. | No |
 | `order_dress` | `order_id` | Custom dress order details. | No |
 | `payment` | `id` uuid | Payments against an order. | No |
-| `orders` | `order_id` text | Legacy order table used by the `Order` entity. | Yes (`Order`) |
+| `orders` | `order_id` text | Order table used by the `Order` entity, including custom dress fields (`custom_order`, `customization`, `custom_price`, `deposit`, `measure_*`; see `Backend/database/custom_orders.sql`). | Yes (`Order`) |
 | `order_products` | `(order_id, product_id)` | Join table for `orders` <-> `product`. | Yes (`Order.products`) |
 | `audit_log` | `id` uuid | Append-only audit trail. | Yes (`AuditLog`) |
 

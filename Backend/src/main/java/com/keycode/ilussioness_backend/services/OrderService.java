@@ -4,6 +4,7 @@ import com.keycode.ilussioness_backend.audit.domain.AuditEntityType;
 import com.keycode.ilussioness_backend.audit.domain.AuditEventType;
 import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.service.AuditService;
+import com.keycode.ilussioness_backend.models.BodyMeasurements;
 import com.keycode.ilussioness_backend.models.Order;
 import com.keycode.ilussioness_backend.models.Product;
 import com.keycode.ilussioness_backend.models.Customer;
@@ -79,6 +80,7 @@ public class OrderService {
             requireValidStatus(order.getStatus());
             order.setCustomer(resolveCustomer(order.getCustomer()));
             order.setProducts(resolveProducts(order.getProducts()));
+            normaliseCustomFields(order);
             reserveStock(order.getProducts());
             order.setStockReserved(true);
         } catch (BusinessValidationException ex) {
@@ -135,6 +137,7 @@ public class OrderService {
             if (updates.getStatus() != null) {
                 order.setStatus(updates.getStatus());
             }
+            mergeCustomFields(order, updates);
         }
 
         try {
@@ -157,6 +160,7 @@ public class OrderService {
                     order.setStockReserved(true);
                 }
             }
+            normaliseCustomFields(order);
         } catch (BusinessValidationException ex) {
             auditFailure(
                     AuditEventType.ORDER_UPDATE_REJECTED,
@@ -221,6 +225,95 @@ public class OrderService {
         metadata.put("PRODUCT_COUNT", Math.min(productCount, 10_000));
         metadata.put("HAS_DELIVERY_DATE", order.getDeliveryDate() != null);
         return metadata;
+    }
+
+    private static void mergeCustomFields(Order order, Order updates) {
+        if (updates.getCustomOrder() != null) {
+            order.setCustomOrder(updates.getCustomOrder());
+        }
+        if (updates.getCustomization() != null) {
+            order.setCustomization(updates.getCustomization());
+        }
+        if (updates.getCustomizationDescription() != null) {
+            order.setCustomizationDescription(updates.getCustomizationDescription());
+        }
+        if (updates.getCustomPrice() != null) {
+            order.setCustomPrice(updates.getCustomPrice());
+        }
+        if (updates.getDeposit() != null) {
+            order.setDeposit(updates.getDeposit());
+        }
+        if (updates.getMeasurements() != null) {
+            order.setMeasurements(updates.getMeasurements());
+        }
+    }
+
+    /**
+     * Trims the custom-dress fields and checks the amounts. Orders that are not
+     * custom never keep customization data or a deposit.
+     */
+    private static void normaliseCustomFields(Order order) {
+        if (!order.isCustom()) {
+            order.setCustomOrder(false);
+            order.setCustomization(null);
+            order.setCustomizationDescription(null);
+            order.setCustomPrice(null);
+            order.setDeposit(null);
+            order.setMeasurements(null);
+            return;
+        }
+        order.setCustomization(blankToNull(order.getCustomization()));
+        order.setCustomizationDescription(blankToNull(order.getCustomizationDescription()));
+        if (order.getCustomization() == null) {
+            throw new BusinessValidationException("customization_required");
+        }
+        if (order.getCustomization().length() > 120) {
+            throw new BusinessValidationException("customization_too_long");
+        }
+        if (order.getCustomizationDescription() != null && order.getCustomizationDescription().length() > 1000) {
+            throw new BusinessValidationException("customization_description_too_long");
+        }
+        if (order.getDeliveryDate() == null) {
+            throw new BusinessValidationException("delivery_date_required");
+        }
+        if (order.getCustomPrice() == null) {
+            throw new BusinessValidationException("custom_price_required");
+        }
+        if (order.getCustomPrice().signum() < 0) {
+            throw new BusinessValidationException("negative_price");
+        }
+        if (order.getDeposit() == null) {
+            order.setDeposit(BigDecimal.ZERO);
+        }
+        if (order.getDeposit().signum() < 0) {
+            throw new BusinessValidationException("negative_deposit");
+        }
+        if (order.getDeposit().compareTo(order.getTotal()) > 0) {
+            throw new BusinessValidationException("deposit_exceeds_total");
+        }
+        BodyMeasurements measurements = order.getMeasurements();
+        if (measurements != null) {
+            for (String value : measurements.values()) {
+                if (value != null && value.trim().length() > BodyMeasurements.MAX_LENGTH) {
+                    throw new BusinessValidationException("measurement_too_long");
+                }
+            }
+            measurements.setShoulder(blankToNull(measurements.getShoulder()));
+            measurements.setBust(blankToNull(measurements.getBust()));
+            measurements.setHip(blankToNull(measurements.getHip()));
+            measurements.setWaist(blankToNull(measurements.getWaist()));
+            measurements.setSkirtLength(blankToNull(measurements.getSkirtLength()));
+            measurements.setBlouseLength(blankToNull(measurements.getBlouseLength()));
+            measurements.setNeckline(blankToNull(measurements.getNeckline()));
+        }
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private static void requireValidStatus(String status) {

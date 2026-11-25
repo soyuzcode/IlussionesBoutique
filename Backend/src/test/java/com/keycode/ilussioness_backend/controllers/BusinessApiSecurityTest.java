@@ -81,7 +81,7 @@ class BusinessApiSecurityTest {
         mockMvc.perform(post("/api/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "%s", "phone": "555"}
+                                {"name": "%s", "phone": "7555-5555"}
                                 """.formatted(payload)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value(payload));
@@ -136,7 +136,7 @@ class BusinessApiSecurityTest {
         mockMvc.perform(post("/api/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "   ", "phone": "555"}
+                                {"name": "   ", "phone": "7555-5555"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("validation_failed"))
@@ -162,7 +162,7 @@ class BusinessApiSecurityTest {
         mockMvc.perform(post("/api/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "%s", "phone": "555"}
+                                {"name": "%s", "phone": "7555-5555"}
                                 """.formatted("a".repeat(200))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.name").exists());
@@ -222,19 +222,19 @@ class BusinessApiSecurityTest {
         mockMvc.perform(put("/api/customer/{id}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "Ana", "phone": "555"}
+                                {"name": "Ana", "phone": "7555-5555"}
                                 """))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void customerUpdateIsSupportedWithPut() throws Exception {
-        Customer created = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer created = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         mockMvc.perform(put("/api/customer/{id}", created.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "Ana María", "phone": "556"}
+                                {"name": "Ana María", "phone": "7555-5556"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Ana María"));
@@ -260,7 +260,7 @@ class BusinessApiSecurityTest {
 
     @Test
     void appointmentPartialUpdateAcceptsBodyWithOnlyReason() throws Exception {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
         Appointment created = appointmentService.createAppointment(new Appointment(
                 customer, "fittings", LocalDate.of(2026, 3, 1), LocalTime.of(10, 0), null));
 
@@ -275,7 +275,7 @@ class BusinessApiSecurityTest {
 
     @Test
     void customerPartialUpdateKeepsUnspecifiedFields() throws Exception {
-        Customer created = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer created = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         mockMvc.perform(put("/api/customer/{id}", created.getId())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -284,7 +284,7 @@ class BusinessApiSecurityTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Ana López"))
-                .andExpect(jsonPath("$.phone").value("555"));
+                .andExpect(jsonPath("$.phone").value("7555-5555"));
     }
 
     @Test
@@ -292,7 +292,7 @@ class BusinessApiSecurityTest {
         MvcResult result = mockMvc.perform(post("/api/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "   ", "phone": "555"}
+                                {"name": "   ", "phone": "7555-5555"}
                                 """))
                 .andReturn();
 
@@ -322,7 +322,7 @@ class BusinessApiSecurityTest {
         mockMvc.perform(post("/api/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "Ana", "phone": "555"}
+                                {"name": "Ana", "phone": "7555-5555"}
                                 """))
                 .andExpect(status().isUnauthorized());
     }

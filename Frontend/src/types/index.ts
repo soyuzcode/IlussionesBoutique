@@ -57,6 +57,27 @@ export interface CalendarProviderStatus {
   connectedAt: string | null;
 }
 
+/** Medidas corporales en cm, tal como se escriben. */
+export interface BodyMeasurements {
+  shoulder?: string | null;
+  bust?: string | null;
+  hip?: string | null;
+  waist?: string | null;
+  skirtLength?: string | null;
+  blouseLength?: string | null;
+  neckline?: string | null;
+}
+
+/** Datos del vestido personalizado de un pedido. */
+export interface CustomOrderDetails {
+  customization: string;
+  customizationDescription?: string | null;
+  customPrice: number;
+  /** Abono entregado; se resta del total. */
+  deposit: number;
+  measurements: BodyMeasurements;
+}
+
 export interface Order {
   orderId: string;
   eventType: string;
@@ -64,18 +85,38 @@ export interface Order {
   products: Product[];
   customer?: Customer | null;
   status?: OrderStatus | null;
+  customOrder?: boolean | null;
+  customization?: string | null;
+  customizationDescription?: string | null;
+  customPrice?: number | null;
+  deposit?: number | null;
+  measurements?: BodyMeasurements | null;
+  /** Calculados por el backend. */
+  total?: number | null;
+  balanceDue?: number | null;
   /** Guardado solo en este dispositivo porque el backend no respondió. */
   localOnly?: boolean;
 }
 
+/** Pedido que se crea junto con la cita, antes de conocer el id del cliente. */
+export interface AppointmentOrderData {
+  orderId: string;
+  eventType: string;
+  deliveryDate: string;
+  productIds: string[];
+  products: Product[];
+  custom?: CustomOrderDetails;
+}
+
 export interface NewAppointmentData {
-  customerId?: string; // si es una clienta existente
+  customerId?: string; // si es un cliente existente
   customerName: string;
   phone: string;
   reason: string;
   date: string;   // "2026-10-29"
   time: string;   // "10:00"
   period: string; // "AM" | "PM"
+  order?: AppointmentOrderData;
 }
 export interface AuthUser {
   name: string;
