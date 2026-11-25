@@ -64,6 +64,8 @@ export interface Order {
   products: Product[];
   customer?: Customer | null;
   status?: OrderStatus | null;
+  /** Guardado solo en este dispositivo porque el backend no respondió. */
+  localOnly?: boolean;
 }
 
 export interface NewAppointmentData {

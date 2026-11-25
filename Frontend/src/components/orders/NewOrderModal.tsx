@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { Customer, Product } from '../../types';
-import { ordersApi } from '../../api/ordersApi';
+import { LocalSaveError, ordersApi } from '../../api/ordersApi';
 import { productsApi } from '../../api/productsApi';
 import { ApiError } from '../../api/httpClient';
 import { todayISO } from '../../utils/dates';
@@ -22,6 +22,7 @@ export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalPro
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
 
   useEffect(() => {
     productsApi
@@ -46,18 +47,31 @@ export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalPro
     setSaving(true);
     setError('');
     try {
-      await ordersApi.create({
+      const order = await ordersApi.create({
         orderId: generateOrderId(),
         customerId: customer.id,
         eventType: eventType.trim(),
         deliveryDate,
         productIds: selected,
+        customer: { id: customer.id, name: customer.name },
+        products: products.filter((p) => selected.includes(p.productId)),
       });
       await onCreated();
+      if (order.localOnly) {
+        setSavedOffline(true);
+        setSaving(false);
+        return;
+      }
       onClose();
     } catch (err) {
       const reason = err instanceof ApiError ? (err.details as { reason?: string } | undefined)?.reason : undefined;
-      setError(reason === 'insufficient_stock' ? 'Uno de los productos ya no tiene stock.' : 'No se pudo crear el pedido.');
+      setError(
+        err instanceof LocalSaveError
+          ? 'Sin conexión con el servidor y no se pudo guardar el pedido en este dispositivo.'
+          : reason === 'insufficient_stock'
+            ? 'Uno de los productos ya no tiene stock.'
+            : 'No se pudo crear el pedido.',
+      );
       setSaving(false);
     }
   };
@@ -93,12 +107,23 @@ export function NewOrderModal({ customer, onClose, onCreated }: NewOrderModalPro
           {selected.length > 0 && <p className="text-right mt-1 font-bold text-gray-700">Total: ${total.toFixed(2)}</p>}
         </div>
         {error && <p role="alert" className="bg-red-50 border border-red-200 text-red-600 font-semibold p-2.5 rounded-xl">{error}</p>}
+        {savedOffline ? (
+          <>
+            <p role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 font-semibold p-2.5 rounded-xl">
+              Sin conexión: el pedido se guardó solo en este dispositivo. Aparece como «Sin sincronizar» y no se envió al servidor.
+            </p>
+            <button type="button" onClick={onClose} className="w-full py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer">
+              Entendido
+            </button>
+          </>
+        ) : (
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold cursor-pointer">Cancelar</button>
           <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50">
             {saving ? 'Guardando...' : 'Crear pedido'}
           </button>
         </div>
+        )}
       </form>
     </div>
   );

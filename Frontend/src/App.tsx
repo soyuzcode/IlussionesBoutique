@@ -23,7 +23,7 @@ import {
   appointmentToCita,
 } from './api/appointmentsApi';
 import { customersApi } from './api/customersApi';
-import { ordersApi } from './api/ordersApi';
+import { clearLocalOrders, ordersApi } from './api/ordersApi';
 import {
   daysUntil,
   formatHeaderDate,
@@ -92,6 +92,7 @@ export function App() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersOffline, setOrdersOffline] = useState(false);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
 
   const isAuthenticated = currentUser !== null;
@@ -122,9 +123,12 @@ export function App() {
 
   const loadOrders = useCallback(async () => {
     try {
-      setOrders(await ordersApi.getAll());
+      const result = await ordersApi.list();
+      setOrders(result.orders);
+      setOrdersOffline(result.offline);
     } catch {
       setOrders([]);
+      setOrdersOffline(false);
     }
   }, []);
 
@@ -221,6 +225,8 @@ export function App() {
     });
     void signOutOnServer();
     clearSession();
+    clearLocalOrders();
+    setOrders([]);
     setCurrentUser(null);
     setActiveTab('home');
   };
@@ -531,7 +537,7 @@ export function App() {
           )}
 
           {activeTab === 'orders' && (
-            <OrdersTab orders={orders} onRefresh={loadOrders} />
+            <OrdersTab orders={orders} onRefresh={loadOrders} offline={ordersOffline} />
           )}
 
           {activeTab === 'inventory' && <InventoryTab />}

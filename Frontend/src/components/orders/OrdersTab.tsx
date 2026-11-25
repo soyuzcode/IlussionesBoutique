@@ -8,9 +8,11 @@ import OrderModal from './OrderModal';
 interface OrdersTabProps {
   orders: Order[];
   onRefresh: () => Promise<void> | void;
+  /** El backend no respondió: solo se muestran los pedidos guardados en este dispositivo. */
+  offline?: boolean;
 }
 
-export function OrdersTab({ orders, onRefresh }: OrdersTabProps) {
+export function OrdersTab({ orders, onRefresh, offline = false }: OrdersTabProps) {
   const [selected, setSelected] = useState<{ order: Order; mode: 'view' | 'edit' } | null>(null);
   const [error, setError] = useState('');
 
@@ -36,6 +38,11 @@ export function OrdersTab({ orders, onRefresh }: OrdersTabProps) {
     <div className="space-y-4 w-full">
       <h2 className="text-base sm:text-lg font-bold text-gray-800">Seguimiento de Pedidos</h2>
 
+      {offline && (
+        <p role="status" className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold p-3 rounded-xl">
+          Sin conexión con el servidor: solo se muestran los pedidos guardados en este dispositivo.
+        </p>
+      )}
       {error && (
         <p role="alert" className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold p-3 rounded-xl">
           {error}
@@ -50,6 +57,11 @@ export function OrdersTab({ orders, onRefresh }: OrdersTabProps) {
           <div key={order.orderId} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-xs space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-pink-600">#{String(order.orderId).slice(0, 8)}</span>
+              {order.localOnly && (
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                  Sin sincronizar
+                </span>
+              )}
               {order.status && (
                 <span className="text-[10px] font-bold px-2 py-0.5 bg-pink-50 text-pink-700 rounded-full">
                   {order.status}
