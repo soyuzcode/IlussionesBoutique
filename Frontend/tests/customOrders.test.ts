@@ -71,13 +71,27 @@ describe('order draft', () => {
     expect(validateOrderDraft(draft, [tiara])).toBe(null);
     expect(validateOrderDraft({ ...draft, deposit: '231' }, [tiara])).toMatch(/abono/);
     expect(validateOrderDraft({ ...draft, customization: ' ' }, [tiara])).toMatch(/personalización/);
-    expect(validateOrderDraft({ ...draft, deliveryDate: emptyOrderDraft().deliveryDate }, [tiara])).toMatch(/programada/);
+    expect(validateOrderDraft({ ...draft, deliveryDate: emptyOrderDraft().deliveryDate }, [tiara])).toBe(null);
 
     const data = toOrderData({ ...draft, measurements: { ...draft.measurements, bust: ' 90 ' } }, [tiara]);
     expect(data.productIds).toEqual(['p1']);
     expect(data.custom).toMatchObject({ customization: 'Sirena', customPrice: 200, deposit: 80 });
     expect(data.custom?.measurements.bust).toBe('90');
     expect(data.custom?.measurements.hip).toBeNull();
+  });
+
+  it('accepts a deposit equal to a fractional total', () => {
+    const item: Product = { ...tiara, price: 19.99 };
+    const draft = {
+      ...emptyOrderDraft(),
+      eventType: 'Boda',
+      productIds: [item.productId],
+      customOrder: true,
+      customization: 'Sirena',
+      customPrice: '99.99',
+      deposit: '119.98',
+    };
+    expect(validateOrderDraft(draft, [item])).toBe(null);
   });
 
   it('requires products for regular orders', () => {
