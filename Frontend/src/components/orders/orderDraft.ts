@@ -49,7 +49,6 @@ export function validateOrderDraft(draft: OrderDraft, products: Product[]): stri
   if (!draft.customOrder) {
     return draftTotals(draft, products).selected.length === 0 ? 'Elige al menos un producto o activa el pedido personalizado.' : null;
   }
-  if (draft.deliveryDate === today) return 'Elige la fecha de entrega programada del vestido.';
   if (!draft.customization.trim()) return 'Indica la personalización del vestido.';
   if (draft.customization.trim().length > 120) return 'La personalización admite máximo 120 caracteres.';
   if (draft.customizationDescription.trim().length > 1000) return 'La descripción admite máximo 1000 caracteres.';

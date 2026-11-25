@@ -100,6 +100,9 @@ export function OrderFormFields({ draft, products, onChange }: OrderFormFieldsPr
           <>
             <div className="flex justify-between text-gray-500"><span>Abono</span><span>-{formatMoney(deposit)}</span></div>
             <div className="flex justify-between font-bold text-pink-700"><span>Saldo pendiente</span><span>{formatMoney(balance)}</span></div>
+            {deposit > total && (
+              <p className="text-red-600 text-[11px]">El abono ({formatMoney(deposit)}) supera el total del pedido ({formatMoney(total)}).</p>
+            )}
           </>
         )}
       </div>

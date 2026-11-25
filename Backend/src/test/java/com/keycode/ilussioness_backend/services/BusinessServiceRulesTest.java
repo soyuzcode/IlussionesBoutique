@@ -121,6 +121,22 @@ class BusinessServiceRulesTest {
     }
 
     @Test
+    void legacyPhoneAllowsNameEditsUntilPhoneChanges() {
+        Customer legacy = customerService.createCustomer(new Customer("Ana", "7555-5555"));
+        jdbcTemplate.update("UPDATE customer SET phone = 'TEST-ORDER-001' WHERE id = ?", legacy.getId());
+
+        Customer renamed = customerService.updateCustomer(legacy.getId(), new Customer("Ana María", null)).orElseThrow();
+        assertThat(renamed.getName()).isEqualTo("Ana María");
+        assertThat(renamed.getPhone()).isEqualTo("TEST-ORDER-001");
+
+        assertThatThrownBy(() -> customerService.updateCustomer(legacy.getId(), new Customer("Ana María", "555")))
+                .isInstanceOf(BusinessValidationException.class)
+                .hasMessage("phone_invalid");
+        assertThat(customerService.updateCustomer(legacy.getId(), new Customer("Ana María", "75555556"))
+                .orElseThrow().getPhone()).isEqualTo("7555-5556");
+    }
+
+    @Test
     void customerUpdateOfUnknownIdReturnsEmpty() {
         assertThat(customerService.updateCustomer(UUID.randomUUID(), new Customer("Ana", "7555-5555")))
                 .isEmpty();

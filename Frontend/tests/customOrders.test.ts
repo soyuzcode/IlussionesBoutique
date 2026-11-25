@@ -71,7 +71,7 @@ describe('order draft', () => {
     expect(validateOrderDraft(draft, [tiara])).toBe(null);
     expect(validateOrderDraft({ ...draft, deposit: '231' }, [tiara])).toMatch(/abono/);
     expect(validateOrderDraft({ ...draft, customization: ' ' }, [tiara])).toMatch(/personalización/);
-    expect(validateOrderDraft({ ...draft, deliveryDate: emptyOrderDraft().deliveryDate }, [tiara])).toMatch(/programada/);
+    expect(validateOrderDraft({ ...draft, deliveryDate: emptyOrderDraft().deliveryDate }, [tiara])).toBe(null);
 
     const data = toOrderData({ ...draft, measurements: { ...draft.measurements, bust: ' 90 ' } }, [tiara]);
     expect(data.productIds).toEqual(['p1']);

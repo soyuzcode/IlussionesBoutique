@@ -55,7 +55,7 @@ public class CustomerService {
     public Customer createCustomer(Customer customer) {
         Customer candidate;
         try {
-            candidate = requireValidCustomer(customer);
+            candidate = requireValidCustomer(customer, true);
         } catch (BusinessValidationException ex) {
             auditFailure(
                     AuditEventType.CUSTOMER_CREATE_FAILED,
@@ -109,6 +109,7 @@ public class CustomerService {
         }
 
         Customer customer = existing.get();
+        String storedPhone = customer.getPhone();
         // PUT accepts partial bodies: only non-null fields replace stored values,
         // then the merged entity is validated as a whole.
         if (updatedCustomer != null) {
@@ -120,7 +121,10 @@ public class CustomerService {
             }
         }
         try {
-            requireValidCustomer(customer);
+            // Legacy phones stay editable by name until the phone itself is changed.
+            boolean phoneChanged = customer.getPhone() == null
+                    || !customer.getPhone().trim().equals(storedPhone == null ? null : storedPhone.trim());
+            requireValidCustomer(customer, phoneChanged);
         } catch (BusinessValidationException ex) {
             auditFailure(
                     AuditEventType.CUSTOMER_UPDATE_REJECTED,
@@ -196,7 +200,7 @@ public class CustomerService {
      * database operation. Rejects null/blank required values and over-long
      * values so persistence never relies on a database error to reject input.
      */
-    private static Customer requireValidCustomer(Customer customer) {
+    private static Customer requireValidCustomer(Customer customer, boolean strictPhone) {
         if (customer == null) {
             throw new BusinessValidationException("payload_required");
         }
@@ -215,11 +219,13 @@ public class CustomerService {
         if (phone.length() > PHONE_MAX_LENGTH) {
             throw new BusinessValidationException("phone_too_long");
         }
-        if (!PHONE_PATTERN.matcher(phone).matches()) {
-            throw new BusinessValidationException("phone_invalid");
+        if (strictPhone) {
+            if (!PHONE_PATTERN.matcher(phone).matches()) {
+                throw new BusinessValidationException("phone_invalid");
+            }
+            String digits = phone.replaceAll("\\D", "");
+            phone = digits.substring(0, 4) + "-" + digits.substring(4);
         }
-        String digits = phone.replaceAll("\\D", "");
-        phone = digits.substring(0, 4) + "-" + digits.substring(4);
 
         customer.setName(name);
         customer.setPhone(phone);

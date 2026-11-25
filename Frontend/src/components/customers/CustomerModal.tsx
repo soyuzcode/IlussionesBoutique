@@ -96,11 +96,12 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
       setError('Ya existe otro cliente con ese nombre.');
       return;
     }
-    if (!isValidPhone(rawPhone)) {
+    const phoneUnchanged = rawPhone === (customer.phone ?? '').trim();
+    if (!phoneUnchanged && !isValidPhone(rawPhone)) {
       setError('El teléfono debe tener 8 dígitos (0000-0000).');
       return;
     }
-    const cleanPhone = formatPhone(rawPhone);
+    const cleanPhone = phoneUnchanged ? rawPhone : formatPhone(rawPhone);
     if (cleanName === customer.name && cleanPhone === (customer.phone ?? '')) {
       setIsEditing(false);
       return;
