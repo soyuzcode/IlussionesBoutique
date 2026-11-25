@@ -34,7 +34,8 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
   const [orderDraft, setOrderDraft] = useState(emptyOrderDraft);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const products = useAvailableProducts();
+  const [appointmentSaved, setAppointmentSaved] = useState(false);
+  const products = useAvailableProducts(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -57,11 +58,16 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
     setWithOrder(false);
     setOrderDraft(emptyOrderDraft());
     setSaving(false);
+    setAppointmentSaved(false);
     onClose();
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (appointmentSaved) {
+      handleClose();
+      return;
+    }
     setError('');
 
     if (!customerId) {
@@ -147,11 +153,12 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
 
       handleClose();
     } catch (err) {
-      setError(
-        err instanceof Error && err.message.startsWith('La cita se guardó')
-          ? err.message
-          : 'No se pudo guardar la cita. Verifica que el servidor esté activo.',
-      );
+      if (err instanceof Error && err.message.startsWith('La cita se guardó')) {
+        setAppointmentSaved(true);
+        setError(err.message);
+      } else {
+        setError('No se pudo guardar la cita. Verifica que el servidor esté activo.');
+      }
     } finally {
       setSaving(false);
     }
@@ -269,7 +276,7 @@ export const NewClientModal: FC<NewClientModalProps> = ({ isOpen, onClose, custo
               disabled={saving}
               className="w-1/2 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold cursor-pointer shadow-md transition disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : 'Guardar Cita'}
+              {saving ? 'Guardando...' : appointmentSaved ? 'Cerrar' : 'Guardar Cita'}
             </button>
           </div>
         </form>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Customer, Order } from '../../types';
 import { ordersApi, type OrderUpdateData } from '../../api/ordersApi';
 import { formatDate } from '../../utils/dates';
-import { formatMoney, orderBalance, orderTotal, printQuote } from '../../utils/quote';
+import { formatMoney, orderBalance, orderDeposit, orderTotal, printQuote } from '../../utils/quote';
 import OrderModal from './OrderModal';
 import NewOrderModal from './NewOrderModal';
 
@@ -89,7 +89,10 @@ export function OrdersTab({ orders, customers, onRefresh, onCustomersChanged, of
               {formatMoney(orderTotal(order))}
             </p>
             {order.customOrder && (
-              <p className="text-xs font-bold text-pink-700">Saldo pendiente: {formatMoney(orderBalance(order))}</p>
+              <p className="text-xs font-semibold text-gray-600">
+                Abono: {formatMoney(orderDeposit(order))} ·{' '}
+                <span className="font-bold text-pink-700">Saldo pendiente: {formatMoney(orderBalance(order))}</span>
+              </p>
             )}
 
             <div className="grid grid-cols-2 gap-2 pt-2">

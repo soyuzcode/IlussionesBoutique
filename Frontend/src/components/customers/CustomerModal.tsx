@@ -68,7 +68,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(customer.name);
-  const [phone, setPhone] = useState(formatPhone(customer.phone ?? ''));
+  const [phone, setPhone] = useState(customer.phone ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   
@@ -77,7 +77,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
 
   const cancelEdit = () => {
     setName(customer.name);
-    setPhone(formatPhone(customer.phone ?? ''));
+    setPhone(customer.phone ?? '');
     setError('');
     setIsEditing(false);
   };

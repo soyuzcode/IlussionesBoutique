@@ -49,7 +49,7 @@ export function OrderModal({ order, mode, onClose, onSave, onPrint }: OrderModal
       await onSave({
         eventType: eventType.trim(),
         deliveryDate: new Date(`${deliveryDate}T12:00:00`).toISOString(),
-        ...(custom ? { deposit: newDeposit } : {}),
+        ...(custom && newDeposit !== Number(order.deposit ?? 0) ? { deposit: newDeposit } : {}),
       });
     } catch (err) {
       setError(
