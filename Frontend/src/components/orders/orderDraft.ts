@@ -47,7 +47,7 @@ export function validateOrderDraft(draft: OrderDraft, products: Product[]): stri
   if (!draft.deliveryDate) return 'Indica la fecha de entrega.';
   if (draft.deliveryDate < today) return 'La fecha de entrega no puede estar en el pasado.';
   if (!draft.customOrder) {
-    return draft.productIds.length === 0 ? 'Elige al menos un producto o activa el pedido personalizado.' : null;
+    return draftTotals(draft, products).selected.length === 0 ? 'Elige al menos un producto o activa el pedido personalizado.' : null;
   }
   if (draft.deliveryDate === today) return 'Elige la fecha de entrega programada del vestido.';
   if (!draft.customization.trim()) return 'Indica la personalización del vestido.';
