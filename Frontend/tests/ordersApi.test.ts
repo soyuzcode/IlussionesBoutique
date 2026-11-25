@@ -46,6 +46,30 @@ describe('ordersApi offline fallback', () => {
     vi.restoreAllMocks();
   });
 
+  it('sends custom dress fields with the order', async () => {
+    fetchMock.mockResolvedValue(json(200, serverOrder));
+    await api.ordersApi.create({
+      ...newOrder,
+      custom: {
+        customization: 'Sirena',
+        customizationDescription: null,
+        customPrice: 200,
+        deposit: 80,
+        measurements: { bust: '90' },
+      },
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      customOrder: true,
+      customization: 'Sirena',
+      customPrice: 200,
+      deposit: 80,
+      measurements: { bust: '90' },
+      products: [{ productId: 'p1' }],
+    });
+  });
+
   it('sends the order to the backend when it is reachable', async () => {
     fetchMock.mockResolvedValue(json(200, serverOrder));
     const order = await api.ordersApi.create(newOrder);

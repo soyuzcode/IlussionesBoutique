@@ -50,7 +50,7 @@ export function CustomersTab({ customers, onNew, onRefresh, onOrderCreated }: Cu
     };
   }, [customers]);
 
-  // Citas agrupadas por clienta, de la más reciente a la más antigua
+  // Citas agrupadas por cliente, de la más reciente a la más antigua
   const appointmentsByCustomer = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     for (const appointment of appointments) {
@@ -96,7 +96,7 @@ export function CustomersTab({ customers, onNew, onRefresh, onOrderCreated }: Cu
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 404
-          ? 'La clienta ya no existe.'
+          ? 'El cliente ya no existe.'
           : `No se pudo eliminar a ${customer.name}. Si tiene citas o pedidos asociados, elimínalos primero.`,
       );
     } finally {
@@ -118,7 +118,7 @@ export function CustomersTab({ customers, onNew, onRefresh, onOrderCreated }: Cu
           onClick={onNew}
           className="px-4 py-2 bg-pink-600 text-white rounded-xl text-xs sm:text-sm font-bold cursor-pointer hover:bg-pink-700 transition"
         >
-          + Nuevo Cliente
+          + Agregar cliente
         </button>
       </div>
 

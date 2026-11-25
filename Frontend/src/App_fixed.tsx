@@ -432,7 +432,7 @@ export function App() {
           )}
 
           {activeTab === 'orders' && (
-            <OrdersTab orders={orders} onRefresh={loadOrders} />
+            <OrdersTab orders={orders} customers={customers} onRefresh={loadOrders} />
           )}
 
           {activeTab === 'inventory' && <ProductTable />}

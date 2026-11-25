@@ -89,7 +89,7 @@ export function InventoryTab() {
           onClick={() => setIsCreating(true)}
           className="py-2 px-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer"
         >
-          + Nuevo producto
+          + Agregar producto
         </button>
       </div>
 

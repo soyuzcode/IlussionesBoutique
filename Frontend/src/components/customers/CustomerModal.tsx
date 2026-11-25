@@ -7,6 +7,7 @@ import AppointmentModal from '../appointments/AppointmentModal';
 import NewOrderModal from '../orders/NewOrderModal';
 import { ordersApi } from '../../api/ordersApi';
 import { printQuote } from '../../utils/quote';
+import { formatPhone, isValidPhone } from '../../utils/phone';
 
 interface CustomerModalProps {
   customer: Customer;
@@ -85,20 +86,21 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
     e.preventDefault();
     setError('');
     const cleanName = name.trim();
-    const cleanPhone = phone.trim();
+    const rawPhone = phone.trim();
 
     if (cleanName.length < 2) {
       setError('El nombre debe tener al menos 2 caracteres.');
       return;
     }
     if (customers.some((c) => c.id !== customer.id && c.name.trim().toLowerCase() === cleanName.toLowerCase())) {
-      setError('Ya existe otra clienta con ese nombre.');
+      setError('Ya existe otro cliente con ese nombre.');
       return;
     }
-    if (cleanPhone && cleanPhone !== (customer.phone ?? '') && !/^[0-9+\-\s]{8,15}$/.test(cleanPhone)) {
-      setError('El teléfono no es válido.');
+    if (!isValidPhone(rawPhone)) {
+      setError('El teléfono debe tener 8 dígitos (0000-0000).');
       return;
     }
+    const cleanPhone = formatPhone(rawPhone);
     if (cleanName === customer.name && cleanPhone === (customer.phone ?? '')) {
       setIsEditing(false);
       return;
@@ -106,14 +108,14 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
 
     setSaving(true);
     try {
-      await customersApi.update(customer.id, { name: cleanName, phone: cleanPhone || undefined });
+      await customersApi.update(customer.id, { name: cleanName, phone: cleanPhone });
       await onSaved();
       onClose();
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 405
           ? 'El backend aún no tiene PUT /api/customer/{id}.'
-          : 'No se pudo guardar la clienta.',
+          : 'No se pudo guardar el cliente.',
       );
     } finally {
       setSaving(false);
@@ -125,7 +127,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
       <form onSubmit={handleSubmit} noValidate className="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-gray-100 pb-2">
           <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
-            {isEditing ? 'Editar clienta' : 'Detalle de la clienta'}
+            {isEditing ? 'Editar cliente' : 'Detalle del cliente'}
           </h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer">
             ✕
@@ -151,8 +153,8 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
               <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Teléfono (opcional)</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+              <label className="text-gray-400 text-[10px] block uppercase font-bold mb-1">Teléfono</label>
+              <input type="tel" inputMode="numeric" placeholder="7000-0000" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} maxLength={9} className={inputClass} />
             </div>
           </div>
         ) : (
@@ -214,7 +216,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                   onClick={() => setIsNewOrderOpen(true)}
                   className="px-2 py-1 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
                 >
-                  + Añadir pedido
+                  + Agregar pedido
                 </button>
               </div>
               <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100 max-h-40 overflow-y-auto">

@@ -35,7 +35,7 @@ class PersistenceAcrossRestartTest {
         UUID id;
         try (ConfigurableApplicationContext first = start(url, "create")) {
             Customer created = first.getBean(CustomerService.class)
-                    .createCustomer(new Customer("Ana", "555"));
+                    .createCustomer(new Customer("Ana", "7555-5555"));
             id = created.getId();
             assertThat(id).isNotNull();
         }
@@ -45,7 +45,7 @@ class PersistenceAcrossRestartTest {
                     .isPresent()
                     .get()
                     .extracting(Customer::getName, Customer::getPhone)
-                    .containsExactly("Ana", "555");
+                    .containsExactly("Ana", "7555-5555");
         }
     }
 

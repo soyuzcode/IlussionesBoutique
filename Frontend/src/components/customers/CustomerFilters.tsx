@@ -78,7 +78,7 @@ export function CustomerFilters({
           onClick={() => onPresetChange(preset === 'custom' ? 'all' : 'custom')}
           className={chip(preset === 'custom')}
         >
-          ⚙️ Ajuste avanzado
+          📅 Rango de fechas
         </button>
       </div>
 

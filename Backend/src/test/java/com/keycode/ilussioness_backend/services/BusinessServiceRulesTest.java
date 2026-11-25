@@ -58,16 +58,16 @@ class BusinessServiceRulesTest {
 
     @Test
     void customerCrudRoundTrip() {
-        Customer created = customerService.createCustomer(new Customer("  Ana  ", " 555 "));
+        Customer created = customerService.createCustomer(new Customer("  Ana  ", " 7555 5555 "));
 
         assertThat(created.getId()).isNotNull();
         assertThat(created.getName()).isEqualTo("Ana");
-        assertThat(created.getPhone()).isEqualTo("555");
+        assertThat(created.getPhone()).isEqualTo("7555-5555");
         assertThat(customerService.getCustomerById(created.getId())).isPresent();
         assertThat(customerService.getAllCustomers()).hasSize(1);
 
         Customer updated = customerService.updateCustomer(
-                created.getId(), new Customer("Ana María", "556")).orElseThrow();
+                created.getId(), new Customer("Ana María", "7555-5556")).orElseThrow();
         assertThat(updated.getName()).isEqualTo("Ana María");
 
         assertThat(customerService.deleteCustomer(created.getId())).isTrue();
@@ -76,7 +76,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void customerNameIsRequired() {
-        assertThatThrownBy(() -> customerService.createCustomer(new Customer("  ", "555")))
+        assertThatThrownBy(() -> customerService.createCustomer(new Customer("  ", "7555-5555")))
                 .isInstanceOf(BusinessValidationException.class)
                 .hasMessage("name_required");
         assertThat(countRows("customer")).isZero();
@@ -93,7 +93,7 @@ class BusinessServiceRulesTest {
     @Test
     void customerNameOverLimitIsRejected() {
         assertThatThrownBy(() -> customerService.createCustomer(
-                new Customer("a".repeat(121), "555")))
+                new Customer("a".repeat(121), "7555-5555")))
                 .isInstanceOf(BusinessValidationException.class)
                 .hasMessage("name_too_long");
         assertThat(countRows("customer")).isZero();
@@ -109,8 +109,20 @@ class BusinessServiceRulesTest {
     }
 
     @Test
+    void customerPhoneMustHaveExactlyEightDigits() {
+        for (String phone : new String[] {"5555", "7555-555", "7555-55555", "abcd-efgh"}) {
+            assertThatThrownBy(() -> customerService.createCustomer(new Customer("Ana", phone)))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessage("phone_invalid");
+        }
+        assertThat(customerService.createCustomer(new Customer("Ana", "75555555")).getPhone())
+                .isEqualTo("7555-5555");
+        assertThat(countRows("customer")).isEqualTo(1);
+    }
+
+    @Test
     void customerUpdateOfUnknownIdReturnsEmpty() {
-        assertThat(customerService.updateCustomer(UUID.randomUUID(), new Customer("Ana", "555")))
+        assertThat(customerService.updateCustomer(UUID.randomUUID(), new Customer("Ana", "7555-5555")))
                 .isEmpty();
     }
 
@@ -125,7 +137,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void appointmentCrudRoundTripAndCustomerLookup() {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
         Appointment created = appointmentService.createAppointment(new Appointment(
                 customer, "fittings", LocalDate.of(2026, 2, 1), LocalTime.of(12, 0),
                 AppointmentStatus.SCHEDULED));
@@ -146,7 +158,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void appointmentDefaultsToScheduledWhenStatusMissing() {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         Appointment created = appointmentService.createAppointment(new Appointment(
                 customer, "fittings", LocalDate.now(), LocalTime.of(9, 0), null));
@@ -159,7 +171,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void appointmentRequiresExistingCustomer() {
-        Customer ghost = new Customer("Ana", "555");
+        Customer ghost = new Customer("Ana", "7555-5555");
         ghost.setId(UUID.randomUUID());
 
         assertThatThrownBy(() -> appointmentService.createAppointment(new Appointment(
@@ -171,7 +183,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void appointmentRequiresDateAndTime() {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         assertThatThrownBy(() -> appointmentService.createAppointment(new Appointment(
                 customer, "fittings", null, LocalTime.of(9, 0), null)))
@@ -188,7 +200,7 @@ class BusinessServiceRulesTest {
 
     @Test
     void appointmentReasonOverLimitIsRejected() {
-        Customer customer = customerService.createCustomer(new Customer("Ana", "555"));
+        Customer customer = customerService.createCustomer(new Customer("Ana", "7555-5555"));
 
         assertThatThrownBy(() -> appointmentService.createAppointment(new Appointment(
                 customer, "r".repeat(501), LocalDate.now(), LocalTime.of(9, 0), null)))
