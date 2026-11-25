@@ -86,7 +86,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
     e.preventDefault();
     setError('');
     const cleanName = name.trim();
-    const cleanPhone = phone.trim();
+    const rawPhone = phone.trim();
 
     if (cleanName.length < 2) {
       setError('El nombre debe tener al menos 2 caracteres.');
@@ -96,10 +96,11 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
       setError('Ya existe otro cliente con ese nombre.');
       return;
     }
-    if (!isValidPhone(cleanPhone)) {
+    if (!isValidPhone(rawPhone)) {
       setError('El teléfono debe tener 8 dígitos (0000-0000).');
       return;
     }
+    const cleanPhone = formatPhone(rawPhone);
     if (cleanName === customer.name && cleanPhone === (customer.phone ?? '')) {
       setIsEditing(false);
       return;
